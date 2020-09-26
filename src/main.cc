@@ -206,6 +206,7 @@ int main(int argc, char *argv[]) {
     for (auto &&i : p.itemIds) {
       std::cout << i << " ";
     }
+    std::cout << "(" << p.transactionIds.size() << ")";
     std::cout << std::endl;
   }
 
