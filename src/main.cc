@@ -109,12 +109,12 @@ std::pair<Pattern, std::queue<int>> findCore(
   //   std::cout << std::endl;
   // }
 
-  auto [firstRowId, firstRow] = sortedDataset[0];
+  const auto [firstRowId, firstRow] = sortedDataset[0];
   auto firstRowIter = firstRow.begin();
 
   core.itemIds.insert(*firstRowIter);
   for (size_t trId = 0; trId < sortedDataset.size(); trId++) {
-    auto [originalTrId, trData] = sortedDataset[trId];
+    const auto [originalTrId, trData] = sortedDataset[trId];
     if (std::find(trData.begin(), trData.end(), *firstRowIter) !=
         trData.end()) {
       core.transactionIds.insert(originalTrId);
@@ -126,7 +126,7 @@ std::pair<Pattern, std::queue<int>> findCore(
     Pattern candidate = core;
     candidate.itemIds.insert(*firstRowIter);
     for (size_t trId = 0; trId < sortedDataset.size(); trId++) {
-      auto [originalTrId, trData] = sortedDataset[trId];
+      const auto [originalTrId, trData] = sortedDataset[trId];
       if (std::find(trData.begin(), trData.end(), *firstRowIter) ==
           trData.end()) {
         candidate.transactionIds.erase(originalTrId);
@@ -149,7 +149,26 @@ std::pair<Pattern, std::queue<int>> findCore(
   return std::make_pair(core, extensionList);
 }
 
-bool notTooNoisy(const Pattern &core, float maxRowNoise, float maxColumnNoise) {
+bool notTooNoisy(const TransactionList &dataset, const Pattern &core,
+                 float maxRowNoise, float maxColumnNoise) {
+  int noise = 0;
+  for (size_t trId = 0; trId < dataset.size(); trId++) {
+    Transaction falsePositives = dataset[trId];
+    Transaction falseNegatives = dataset[trId];
+
+    if (core.transactionIds.count(trId) > 0) {
+      for (auto &&i : core.itemIds) {
+        if (dataset[trId].count(i) > 0) {
+          falsePositives.erase(i);
+        }
+        falseNegatives.erase(i);
+      }
+    }
+
+    falsePositives.merge(falseNegatives);
+    noise += falsePositives.size();
+  }
+
   return true;
 }
 
@@ -165,7 +184,7 @@ Pattern extendCore(Pattern &core, std::queue<int> &extensionList,
         Pattern candidate = core;
         candidate.transactionIds.insert(trId);
 
-        if (notTooNoisy(candidate, maxRowNoise, maxColumnNoise)) {
+        if (notTooNoisy(dataset, candidate, maxRowNoise, maxColumnNoise)) {
           PatternList patternsWithCandidate = patterns;
           patternsWithCandidate.push_back(candidate);
           PatternList patternsWithCore = patterns;
@@ -186,7 +205,7 @@ Pattern extendCore(Pattern &core, std::queue<int> &extensionList,
       Pattern candidate = core;
       candidate.itemIds.insert(extension);
 
-      if (notTooNoisy(candidate, maxRowNoise, maxColumnNoise)) {
+      if (notTooNoisy(dataset, candidate, maxRowNoise, maxColumnNoise)) {
         PatternList patternsWithCandidate = patterns;
         patternsWithCandidate.push_back(candidate);
         PatternList patternsWithCore = patterns;
@@ -203,19 +222,18 @@ Pattern extendCore(Pattern &core, std::queue<int> &extensionList,
   return core;
 }
 
-SortedTransactionList buildResidualDataset(TransactionList dataset,
-                                           PatternList patterns) {
+SortedTransactionList buildResidualDataset(const TransactionList &dataset,
+                                           const PatternList &patterns) {
   SortedTransactionList result;
 
   for (size_t trId = 0; trId < dataset.size(); trId++) {
     std::vector<int> resultRow;
 
-    for (auto &&i : dataset[trId]) {
+    for (const auto &i : dataset[trId]) {
       bool foundInPattern = false;
-      for (auto &&p : patterns) {
-        auto [columns, transactions] = p;
-        bool inColumns = columns.count(i) > 0;
-        bool inTransactions = transactions.count(trId) > 0;
+      for (const auto &p : patterns) {
+        bool inColumns = p.itemIds.count(i) > 0;
+        bool inTransactions = p.transactionIds.count(trId) > 0;
 
         if (inColumns && inTransactions) {
           foundInPattern = true;
@@ -245,9 +263,9 @@ PatternList panda(int maxK, const TransactionList &dataset, float maxRowNoise,
   for (int i = 0; i < maxK; i++) {
     auto [core, extensionList] =
         findCore<J>(residualDataset, patterns, dataset);
-    // auto newCore = core;
-    auto newCore = extendCore<J>(core, extensionList, patterns, dataset,
-                                 maxRowNoise, maxColumnNoise);
+    auto newCore = core;
+    // auto newCore = extendCore<J>(core, extensionList, patterns, dataset,
+    //                              maxRowNoise, maxColumnNoise);
 
     PatternList patternsWithNewCore = patterns;
     patternsWithNewCore.push_back(newCore);
@@ -340,12 +358,18 @@ int main(int argc, char *argv[]) {
   // std::cout << std::endl;
 
   auto patterns = panda<testErrorFunction>(8, dataset, 1.0, 1.0);
+
   std::cout << "Patterns:" << std::endl;
   for (auto &&p : patterns) {
     for (auto &&i : p.itemIds) {
       std::cout << i << " ";
     }
-    std::cout << "(" << p.transactionIds.size() << ")";
+    // std::cout << "(";
+    // for (auto &&i : p.transactionIds) {
+    //   std::cout << i << " ";
+    // }
+    // std::cout << ")";
+    std::cout << " (" << p.transactionIds.size() << ")";
     std::cout << std::endl;
   }
 
