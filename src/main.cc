@@ -6,7 +6,7 @@
 
 using transactions = std::vector<std::vector<int>>;
 
-transactions readTransactions(std::string path) {
+transactions readTransactions(const std::string& path) {
   transactions result;
 
   std::ifstream infile(path);
