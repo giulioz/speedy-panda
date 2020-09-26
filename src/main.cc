@@ -304,14 +304,14 @@ float testErrorFunction(const PatternList &patterns,
 
   int noise = 0;
   for (size_t trId = 0; trId < dataset.size(); trId++) {
-    Transaction falsePositives = dataset[trId];
+    Transaction falsePositives;
     Transaction falseNegatives = dataset[trId];
 
     for (auto &&pattern : patterns) {
       if (pattern.transactionIds.count(trId) > 0) {
         for (auto &&i : pattern.itemIds) {
-          if (dataset[trId].count(i) > 0) {
-            falsePositives.erase(i);
+          if (dataset[trId].count(i) == 0) {
+            falsePositives.insert(i);
           }
           falseNegatives.erase(i);
         }
