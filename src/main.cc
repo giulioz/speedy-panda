@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <set>
 #include <sstream>
 #include <string>
@@ -9,7 +10,7 @@
 
 using Transaction = std::set<int>;
 using TransactionList = std::vector<Transaction>;
-using SortedTransactionList = std::vector<std::pair<int, Transaction>>;
+using SortedTransactionList = std::vector<std::pair<size_t, std::vector<int>>>;
 
 struct Pattern {
   std::set<int> itemIds;
@@ -38,34 +39,83 @@ TransactionList readTransactions(const std::string &path) {
   return result;
 }
 
-SortedTransactionList sortDataset(TransactionList dataset) {
-  SortedTransactionList sortDataset;
-
+SortedTransactionList setToVectorDataset(const TransactionList &dataset) {
+  SortedTransactionList result;
   for (size_t i = 0; i < dataset.size(); i++) {
-    sortDataset.push_back(std::make_pair(i, dataset[i]));
+    std::vector<int> elements(dataset[i].begin(), dataset[i].end());
+    result.push_back(std::make_pair(i, elements));
   }
-
-  return sortDataset;
+  return result;
 }
 
-template <float (*J)(PatternList, TransactionList)>
-std::pair<Pattern, PatternList> findCore(TransactionList residualDataset,
-                                         PatternList patterns,
-                                         TransactionList dataset) {
+SortedTransactionList sortDataset(const SortedTransactionList &dataset) {
+  std::map<int, size_t> itemsFreqMap;
+  for (size_t trId = 0; trId < dataset.size(); trId++) {
+    for (auto &&i : dataset[trId].second) {
+      if (itemsFreqMap.find(i) == itemsFreqMap.end()) {
+        itemsFreqMap[i] = 1;
+      } else {
+        itemsFreqMap[i]++;
+      }
+    }
+  }
+
+  SortedTransactionList sortedDataset;
+  for (size_t i = 0; i < dataset.size(); i++) {
+    std::vector<int> elements(dataset[i].second.begin(),
+                              dataset[i].second.end());
+    std::sort(elements.begin(), elements.end(), [&itemsFreqMap](int a, int b) {
+      return itemsFreqMap[a] > itemsFreqMap[b];
+    });
+    sortedDataset.push_back(std::make_pair(dataset[i].first, elements));
+  }
+
+  std::sort(sortedDataset.begin(), sortedDataset.end(),
+            [&itemsFreqMap](std::pair<int, std::vector<int>> a,
+                            std::pair<int, std::vector<int>> b) {
+              size_t aFreq = 0;
+              for (auto &&i : a.second) {
+                aFreq += itemsFreqMap[i];
+              }
+              size_t bFreq = 0;
+              for (auto &&i : b.second) {
+                bFreq += itemsFreqMap[i];
+              }
+              return aFreq > bFreq;
+            });
+
+  return sortedDataset;
+}
+
+template <float (*J)(const PatternList &, const TransactionList &)>
+std::pair<Pattern, PatternList> findCore(
+    const SortedTransactionList &residualDataset, const PatternList &patterns,
+    const TransactionList &dataset) {
   PatternList extensionList;
   SortedTransactionList sortedDataset = sortDataset(residualDataset);
-  auto [firstRowId, firstRow] = sortedDataset[0];
-  auto firstRowIter = firstRow.begin();
   Pattern core;
 
-  if (firstRowIter == firstRow.end()) {
+  if (sortedDataset.size() == 0 || sortedDataset[0].second.size() == 0) {
     return std::make_pair(core, extensionList);
   }
+
+  // std::cout << "SORTED:" << std::endl;
+  // for (auto &&t : sortedDataset) {
+  //   std::cout << "(" << t.first << ")  ";
+  //   for (auto &&c : t.second) {
+  //     std::cout << c << " ";
+  //   }
+  //   std::cout << std::endl;
+  // }
+
+  auto [firstRowId, firstRow] = sortedDataset[0];
+  auto firstRowIter = firstRow.begin();
 
   core.itemIds.insert(*firstRowIter);
   for (size_t trId = 0; trId < sortedDataset.size(); trId++) {
     auto [originalTrId, trData] = sortedDataset[trId];
-    if (trData.count(*firstRowIter) > 0) {
+    if (std::find(trData.begin(), trData.end(), *firstRowIter) !=
+        trData.end()) {
       core.transactionIds.insert(originalTrId);
     }
   }
@@ -76,8 +126,11 @@ std::pair<Pattern, PatternList> findCore(TransactionList residualDataset,
     candidate.itemIds.insert(*firstRowIter);
     for (size_t trId = 0; trId < sortedDataset.size(); trId++) {
       auto [originalTrId, trData] = sortedDataset[trId];
-      if (trData.count(*firstRowIter) == 0) {
+      if (std::find(trData.begin(), trData.end(), *firstRowIter) ==
+          trData.end()) {
         candidate.transactionIds.erase(originalTrId);
+      } else {
+        // candidate.transactionIds.insert(originalTrId);
       }
     }
 
@@ -97,13 +150,13 @@ std::pair<Pattern, PatternList> findCore(TransactionList residualDataset,
   return std::make_pair(core, extensionList);
 }
 
-bool notTooNoisy(Pattern core, float maxRowNoise, float maxColumnNoise) {
+bool notTooNoisy(const Pattern &core, float maxRowNoise, float maxColumnNoise) {
   return true;
 }
 
-template <float (*J)(PatternList, TransactionList)>
+template <float (*J)(const PatternList &, const TransactionList &)>
 Pattern extendCore(Pattern core, PatternList extensionList,
-                   PatternList patterns, TransactionList dataset,
+                   const PatternList &patterns, const TransactionList &dataset,
                    float maxRowNoise, float maxColumnNoise) {
   // bool addedItem = true;
   // int n = 5;
@@ -123,22 +176,19 @@ Pattern extendCore(Pattern core, PatternList extensionList,
   return core;
 }
 
-TransactionList buildResidualDataset(TransactionList dataset,
-                                     PatternList patterns) {
-  TransactionList result;
+SortedTransactionList buildResidualDataset(TransactionList dataset,
+                                           PatternList patterns) {
+  SortedTransactionList result;
 
   for (size_t trId = 0; trId < dataset.size(); trId++) {
-    Transaction resultRow;
+    std::vector<int> resultRow;
 
     for (auto &&i : dataset[trId]) {
       bool foundInPattern = false;
       for (auto &&p : patterns) {
         auto [columns, transactions] = p;
-        bool inColumns =
-            std::find(columns.begin(), columns.end(), i) != columns.end();
-        bool inTransactions =
-            std::find(transactions.begin(), transactions.end(), trId) !=
-            transactions.end();
+        bool inColumns = columns.count(i) > 0;
+        bool inTransactions = transactions.count(trId) > 0;
 
         if (inColumns && inTransactions) {
           foundInPattern = true;
@@ -147,21 +197,23 @@ TransactionList buildResidualDataset(TransactionList dataset,
       }
 
       if (!foundInPattern) {
-        resultRow.insert(i);
+        resultRow.push_back(i);
       }
     }
 
-    result.push_back(resultRow);
+    if (resultRow.size() > 0) {
+      result.push_back(std::make_pair(trId, resultRow));
+    }
   }
 
   return result;
 }
 
-template <float (*J)(PatternList, TransactionList)>
-PatternList panda(int maxK, TransactionList dataset, float maxRowNoise,
+template <float (*J)(const PatternList &, const TransactionList &)>
+PatternList panda(int maxK, const TransactionList &dataset, float maxRowNoise,
                   float maxColumnNoise) {
   PatternList patterns;
-  TransactionList residualDataset = dataset;
+  SortedTransactionList residualDataset = setToVectorDataset(dataset);
 
   for (int i = 0; i < maxK; i++) {
     auto [core, extensionList] =
@@ -174,31 +226,91 @@ PatternList panda(int maxK, TransactionList dataset, float maxRowNoise,
     patternsWithNewCore.push_back(newCore);
     if (J(patterns, dataset) < J(patternsWithNewCore, dataset)) {
       // J cannot be improved any more
+      // std::cout << "J cannot be improved any more" << std::endl;
       break;
     }
 
     patterns = patternsWithNewCore;
     residualDataset = buildResidualDataset(dataset, patterns);
+
+    // std::cout << std::endl;
+    // std::cout << std::endl;
   }
 
   return patterns;
 }
 
-float testErrorFunction(PatternList patterns, TransactionList dataset) {
-  return 0;
+float testErrorFunction(const PatternList &patterns,
+                        const TransactionList &dataset) {
+  // std::cout << "Patterns:" << std::endl;
+  // for (auto &&p : patterns) {
+  //   for (auto &&i : p.itemIds) {
+  //     std::cout << i << " ";
+  //   }
+  //   std::cout << "(";
+  //   for (auto &&i : p.transactionIds) {
+  //     std::cout << i << " ";
+  //   }
+  //   std::cout << ")";
+  //   std::cout << std::endl;
+  // }
+
+  int noise = 0;
+  for (size_t trId = 0; trId < dataset.size(); trId++) {
+    Transaction falsePositives = dataset[trId];
+    Transaction falseNegatives = dataset[trId];
+
+    for (auto &&pattern : patterns) {
+      if (pattern.transactionIds.count(trId) > 0) {
+        for (auto &&i : pattern.itemIds) {
+          if (dataset[trId].count(i) > 0) {
+            falsePositives.erase(i);
+          }
+          falseNegatives.erase(i);
+        }
+      }
+    }
+
+    falsePositives.merge(falseNegatives);
+    noise += falsePositives.size();
+
+    // std::cout << "Row: ";
+    // for (auto &&i : dataset[trId]) {
+    //   std::cout << i << " ";
+    // }
+    // std::cout << "  Out of place:";
+    // for (auto &&i : falsePositives) {
+    //   std::cout << i << " ";
+    // }
+    // std::cout << std::endl;
+  }
+
+  int complexity = 0;
+  for (auto &&pattern : patterns) {
+    complexity += pattern.transactionIds.size();
+    complexity += pattern.itemIds.size();
+  }
+
+  // std::cout << "COMPLEXITY: " << complexity << " NOISE: " << noise
+  //           << " COST: " << 0.5 * complexity + noise << std::endl;
+
+  // std::cout << std::endl;
+  // std::cout << std::endl;
+
+  return 0.5 * complexity + noise;
 }
 
 int main(int argc, char *argv[]) {
   TransactionList dataset = readTransactions(argv[1]);
 
-  std::cout << "Dataset:" << std::endl;
-  for (auto &&t : dataset) {
-    for (auto &&c : t) {
-      std::cout << c << " ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
+  // std::cout << "Dataset:" << std::endl;
+  // for (auto &&t : dataset) {
+  //   for (auto &&c : t) {
+  //     std::cout << c << " ";
+  //   }
+  //   std::cout << std::endl;
+  // }
+  // std::cout << std::endl;
 
   auto patterns = panda<testErrorFunction>(8, dataset, 1.0, 1.0);
   std::cout << "Patterns:" << std::endl;
