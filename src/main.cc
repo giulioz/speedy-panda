@@ -151,25 +151,27 @@ std::pair<Pattern, std::queue<int>> findCore(
 
 bool notTooNoisy(const TransactionList &dataset, const Pattern &core,
                  float maxRowNoise, float maxColumnNoise) {
-  int noise = 0;
-  for (size_t trId = 0; trId < dataset.size(); trId++) {
-    Transaction falsePositives = dataset[trId];
-    Transaction falseNegatives = dataset[trId];
+  bool ok = true;
 
-    if (core.transactionIds.count(trId) > 0) {
-      for (auto &&i : core.itemIds) {
-        if (dataset[trId].count(i) > 0) {
-          falsePositives.erase(i);
-        }
-        falseNegatives.erase(i);
-      }
+  const auto maxColumn = (1 - maxColumnNoise) * core.transactionIds.size();
+  for (auto &&j : core.itemIds) {
+    int columnSum = 0;
+    for (auto &&i : core.transactionIds) {
+      columnSum += dataset[i].count(j);
     }
-
-    falsePositives.merge(falseNegatives);
-    noise += falsePositives.size();
+    ok &= columnSum >= maxColumn;
   }
 
-  return true;
+  const auto maxRow = (1 - maxRowNoise) * core.itemIds.size();
+  for (auto &&i : core.transactionIds) {
+    int rowSum = 0;
+    for (auto &&j : core.itemIds) {
+      rowSum += dataset[i].count(j);
+    }
+    ok &= rowSum >= maxRow;
+  }
+
+  return ok;
 }
 
 template <float (*J)(const PatternList &, const TransactionList &)>
@@ -263,9 +265,9 @@ PatternList panda(int maxK, const TransactionList &dataset, float maxRowNoise,
   for (int i = 0; i < maxK; i++) {
     auto [core, extensionList] =
         findCore<J>(residualDataset, patterns, dataset);
-    auto newCore = core;
-    // auto newCore = extendCore<J>(core, extensionList, patterns, dataset,
-    //                              maxRowNoise, maxColumnNoise);
+    // auto newCore = core;
+    auto newCore = extendCore<J>(core, extensionList, patterns, dataset,
+                                 maxRowNoise, maxColumnNoise);
 
     PatternList patternsWithNewCore = patterns;
     patternsWithNewCore.push_back(newCore);
