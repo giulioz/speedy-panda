@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <queue>
 #include <set>
 #include <sstream>
 #include <string>
@@ -88,10 +89,10 @@ SortedTransactionList sortDataset(const SortedTransactionList &dataset) {
 }
 
 template <float (*J)(const PatternList &, const TransactionList &)>
-std::pair<Pattern, PatternList> findCore(
+std::pair<Pattern, std::queue<int>> findCore(
     const SortedTransactionList &residualDataset, const PatternList &patterns,
     const TransactionList &dataset) {
-  PatternList extensionList;
+  std::queue<int> extensionList;
   SortedTransactionList sortedDataset = sortDataset(residualDataset);
   Pattern core;
 
@@ -129,8 +130,6 @@ std::pair<Pattern, PatternList> findCore(
       if (std::find(trData.begin(), trData.end(), *firstRowIter) ==
           trData.end()) {
         candidate.transactionIds.erase(originalTrId);
-      } else {
-        // candidate.transactionIds.insert(originalTrId);
       }
     }
 
@@ -141,7 +140,7 @@ std::pair<Pattern, PatternList> findCore(
     if (J(patternsWithCandidate, dataset) <= J(patternsWithCore, dataset)) {
       core = candidate;
     } else {
-      extensionList.push_back(candidate);
+      extensionList.push(*firstRowIter);
     }
 
     firstRowIter++;
@@ -155,23 +154,51 @@ bool notTooNoisy(const Pattern &core, float maxRowNoise, float maxColumnNoise) {
 }
 
 template <float (*J)(const PatternList &, const TransactionList &)>
-Pattern extendCore(Pattern core, PatternList extensionList,
+Pattern extendCore(Pattern &core, std::queue<int> &extensionList,
                    const PatternList &patterns, const TransactionList &dataset,
                    float maxRowNoise, float maxColumnNoise) {
-  // bool addedItem = true;
-  // int n = 5;
+  bool addedItem = true;
 
-  // while (addedItem) {
-  //   for (int i = 0; i < n; i++) {
-  //     // auto tr = sortedD[trId];
-  //   }
-  //   addedItem = false;
-  //   while (!extensionList.empty()) {
-  //     auto extensionList.pop_back();
+  while (addedItem) {
+    for (size_t trId = 0; trId < dataset.size(); trId++) {
+      if (core.transactionIds.count(trId) == 0) {
+        Pattern candidate = core;
+        candidate.transactionIds.insert(trId);
 
-  //     addedItem = true;
-  //   }
-  // }
+        if (notTooNoisy(candidate, maxRowNoise, maxColumnNoise)) {
+          PatternList patternsWithCandidate = patterns;
+          patternsWithCandidate.push_back(candidate);
+          PatternList patternsWithCore = patterns;
+          patternsWithCore.push_back(core);
+          if (J(patternsWithCandidate, dataset) <=
+              J(patternsWithCore, dataset)) {
+            core = candidate;
+          }
+        }
+      }
+    }
+
+    addedItem = false;
+
+    while (extensionList.size() > 0) {
+      auto extension = extensionList.front();
+      extensionList.pop();
+      Pattern candidate = core;
+      candidate.itemIds.insert(extension);
+
+      if (notTooNoisy(candidate, maxRowNoise, maxColumnNoise)) {
+        PatternList patternsWithCandidate = patterns;
+        patternsWithCandidate.push_back(candidate);
+        PatternList patternsWithCore = patterns;
+        patternsWithCore.push_back(core);
+        if (J(patternsWithCandidate, dataset) <= J(patternsWithCore, dataset)) {
+          core = candidate;
+          addedItem = true;
+          break;
+        }
+      }
+    }
+  }
 
   return core;
 }
@@ -218,9 +245,9 @@ PatternList panda(int maxK, const TransactionList &dataset, float maxRowNoise,
   for (int i = 0; i < maxK; i++) {
     auto [core, extensionList] =
         findCore<J>(residualDataset, patterns, dataset);
-    auto newCore = core;
-    // auto newCore = extendCore<J>(core, extensionList, patterns, dataset,
-    //                           maxRowNoise, maxColumnNoise);
+    // auto newCore = core;
+    auto newCore = extendCore<J>(core, extensionList, patterns, dataset,
+                                 maxRowNoise, maxColumnNoise);
 
     PatternList patternsWithNewCore = patterns;
     patternsWithNewCore.push_back(newCore);
