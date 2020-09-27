@@ -100,15 +100,6 @@ std::pair<Pattern, std::queue<int>> findCore(
     return std::make_pair(core, extensionList);
   }
 
-  // std::cout << "SORTED:" << std::endl;
-  // for (auto &&t : sortedDataset) {
-  //   std::cout << "(" << t.first << ")  ";
-  //   for (auto &&c : t.second) {
-  //     std::cout << c << " ";
-  //   }
-  //   std::cout << std::endl;
-  // }
-
   const auto [firstRowId, firstRow] = sortedDataset[0];
   auto firstRowIter = firstRow.begin();
 
@@ -273,35 +264,18 @@ PatternList panda(int maxK, const TransactionList &dataset, float maxRowNoise,
     patternsWithNewCore.push_back(newCore);
     if (J(patterns, dataset) < J(patternsWithNewCore, dataset)) {
       // J cannot be improved any more
-      // std::cout << "J cannot be improved any more" << std::endl;
       break;
     }
 
     patterns = patternsWithNewCore;
     residualDataset = buildResidualDataset(dataset, patterns);
-
-    // std::cout << std::endl;
-    // std::cout << std::endl;
   }
 
   return patterns;
 }
 
-float testErrorFunction(const PatternList &patterns,
-                        const TransactionList &dataset) {
-  // std::cout << "Patterns:" << std::endl;
-  // for (auto &&p : patterns) {
-  //   for (auto &&i : p.itemIds) {
-  //     std::cout << i << " ";
-  //   }
-  //   std::cout << "(";
-  //   for (auto &&i : p.transactionIds) {
-  //     std::cout << i << " ";
-  //   }
-  //   std::cout << ")";
-  //   std::cout << std::endl;
-  // }
-
+float standardCostFunction(const PatternList &patterns,
+                           const TransactionList &dataset) {
   int noise = 0;
   for (size_t trId = 0; trId < dataset.size(); trId++) {
     Transaction falsePositives;
@@ -320,16 +294,6 @@ float testErrorFunction(const PatternList &patterns,
 
     falsePositives.merge(falseNegatives);
     noise += falsePositives.size();
-
-    // std::cout << "Row: ";
-    // for (auto &&i : dataset[trId]) {
-    //   std::cout << i << " ";
-    // }
-    // std::cout << "  Out of place:";
-    // for (auto &&i : falsePositives) {
-    //   std::cout << i << " ";
-    // }
-    // std::cout << std::endl;
   }
 
   int complexity = 0;
@@ -338,28 +302,13 @@ float testErrorFunction(const PatternList &patterns,
     complexity += pattern.itemIds.size();
   }
 
-  // std::cout << "COMPLEXITY: " << complexity << " NOISE: " << noise
-  //           << " COST: " << 0.5 * complexity + noise << std::endl;
-
-  // std::cout << std::endl;
-  // std::cout << std::endl;
-
   return 0.5 * complexity + noise;
 }
 
 int main(int argc, char *argv[]) {
   TransactionList dataset = readTransactions(argv[1]);
 
-  // std::cout << "Dataset:" << std::endl;
-  // for (auto &&t : dataset) {
-  //   for (auto &&c : t) {
-  //     std::cout << c << " ";
-  //   }
-  //   std::cout << std::endl;
-  // }
-  // std::cout << std::endl;
-
-  auto patterns = panda<testErrorFunction>(8, dataset, 1.0, 1.0);
+  auto patterns = panda<standardCostFunction>(8, dataset, 1.0, 1.0);
 
   std::cout << "Patterns:" << std::endl;
   for (auto &&p : patterns) {
