@@ -11,6 +11,7 @@
 
 #include "panda.h"
 
+// Read transactions from a file given path, line by line and space separated
 TransactionList readTransactions(const std::string &path) {
   TransactionList result;
 
@@ -32,8 +33,10 @@ TransactionList readTransactions(const std::string &path) {
   return result;
 }
 
+// General cost function from the paper
 float standardCostFunction(const PatternList &patterns,
                            const TransactionList &dataset) {
+  // Noise from patterns vs dataset (Ja)
   int noise = 0;
   for (size_t trId = 0; trId < dataset.size(); trId++) {
     std::set<int> falsePositives;
@@ -54,13 +57,15 @@ float standardCostFunction(const PatternList &patterns,
     noise += falsePositives.size();
   }
 
+  // Pattern set complexity (Jh)
   int complexity = 0;
   for (auto &&pattern : patterns) {
     complexity += pattern.transactionIds.size();
     complexity += pattern.itemIds.size();
   }
 
-  return 0.5 * complexity + noise;
+  // Weight the two measures (Jp)
+  return 0.8 * complexity + noise;
 }
 
 int main(int argc, char *argv[]) {

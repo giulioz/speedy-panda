@@ -11,15 +11,22 @@
 #include <utility>
 #include <vector>
 
+/*
+ * Type alias declarations
+ */
+
 using Transaction = std::set<int>;
 using TransactionList = std::vector<Transaction>;
 using SortedTransactionList = std::vector<std::pair<size_t, std::vector<int>>>;
-
 struct Pattern {
   std::set<int> itemIds;
   std::set<int> transactionIds;
 };
 using PatternList = std::vector<Pattern>;
+
+/*
+ * Utility functions declarations
+ */
 
 SortedTransactionList setToVectorDataset(const TransactionList &dataset);
 SortedTransactionList sortDataset(const SortedTransactionList &dataset);
@@ -27,6 +34,10 @@ bool notTooNoisy(const TransactionList &dataset, const Pattern &core,
                  float maxRowNoise, float maxColumnNoise);
 SortedTransactionList buildResidualDataset(const TransactionList &dataset,
                                            const PatternList &patterns);
+
+/*
+ * Core algorithm functions
+ */
 
 template <float (*J)(const PatternList &, const TransactionList &)>
 std::pair<Pattern, std::queue<int>> findCore(
