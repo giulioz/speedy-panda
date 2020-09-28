@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "costutils.h"
 #include "panda.h"
 
 // Read transactions from a file given path, line by line and space separated
@@ -33,36 +34,13 @@ TransactionList readTransactions(const std::string &path) {
   return result;
 }
 
-// General cost function from the paper
 float standardCostFunction(const PatternList &patterns,
                            const TransactionList &dataset) {
   // Noise from patterns vs dataset (Ja)
-  int noise = 0;
-  for (size_t trId = 0; trId < dataset.size(); trId++) {
-    std::set<int> falsePositives;
-    std::set<int> falseNegatives = dataset[trId];
-
-    for (auto &&pattern : patterns) {
-      if (pattern.transactionIds.count(trId) > 0) {
-        for (auto &&i : pattern.itemIds) {
-          if (dataset[trId].count(i) == 0) {
-            falsePositives.insert(i);
-          }
-          falseNegatives.erase(i);
-        }
-      }
-    }
-
-    falsePositives.merge(falseNegatives);
-    noise += falsePositives.size();
-  }
+  int noise = calcNoise(patterns, dataset);
 
   // Pattern set complexity (Jh)
-  int complexity = 0;
-  for (auto &&pattern : patterns) {
-    complexity += pattern.transactionIds.size();
-    complexity += pattern.itemIds.size();
-  }
+  int complexity = calcPatternsComplexity(patterns);
 
   // Weight the two measures (Jp)
   return 0.8 * complexity + noise;
