@@ -29,7 +29,7 @@ ExternalProject_Get_Property(doctest source_dir)
 set(DOCTEST_INCLUDE_DIR ${source_dir}/doctest CACHE INTERNAL "Path to include folder for doctest")
 enable_testing()
 
-add_executable(costutils_test tests/costutils.test.cc ${LIB_SOURCE_FILES})
+add_executable(costutils_test tests/costutils.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
 target_compile_features(costutils_test PRIVATE cxx_std_17)
 target_include_directories(costutils_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(costutils costutils_test)
