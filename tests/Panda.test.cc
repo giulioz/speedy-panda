@@ -1,4 +1,4 @@
-#include "../src/costutils.h"
+#include "../src/panda.h"
 #include "doctest.h"
 
 TEST_CASE("calcNoise") {

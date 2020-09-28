@@ -1,8 +1,10 @@
 #pragma once
 
+#include <algorithm>
 #include <map>
 #include <vector>
-#include <algorithm>
+
+#include "PatternList.h"
 
 template <typename T = int>
 struct Transaction {
@@ -49,9 +51,31 @@ struct TransactionList {
 
   inline size_t size() const { return transactions.size(); }
 
+  // Removes a pattern footprint from transactions (for residual dataset)
+  void removePattern(const Pattern<T> &pattern) {
+    for (size_t i = 0; i < transactions.size(); i++) {
+      // if is in pattern transactions
+      if (pattern.transactionIds.count(transactions[i].trId) > 0) {
+        std::vector<T> resultRow;
+
+        for (const auto &trItem : transactions[i].items) {
+          // if is in pattern items
+          if (pattern.itemIds.count(trItem) == 0) {
+            resultRow.push_back(trItem);
+          }
+        }
+
+        const int diff = transactions[i].items.size() - resultRow.size();
+        transactions[i].items = resultRow;
+        elCount -= diff;
+      }
+    }
+  }
+
+  // Build a frequency map for every item
   std::map<T, size_t> getItemsFreq() const {
     std::map<int, size_t> itemsFreqMap;
-    for (size_t trId = 0; trId < size(); trId++) {
+    for (size_t trId = 0; trId < transactions.size(); trId++) {
       for (auto &&i : transactions[trId].items) {
         if (itemsFreqMap.find(i) == itemsFreqMap.end()) {
           itemsFreqMap[i] = 1;
@@ -62,5 +86,34 @@ struct TransactionList {
     }
 
     return itemsFreqMap;
+  }
+
+  // By frequency sorting strategy for greedy method
+  void sortByFreq() {
+    const auto itemsFreqMap = getItemsFreq();
+
+    // Sort every transaction items
+    for (size_t i = 0; i < transactions.size(); i++) {
+      std::vector<T> &items = transactions[i].items;
+      std::sort(items.begin(), items.end(),
+                [&itemsFreqMap](const T &a, const T &b) {
+                  return itemsFreqMap.at(a) > itemsFreqMap.at(b);
+                });
+    }
+
+    // Sort transactions
+    std::sort(
+        transactions.begin(), transactions.end(),
+        [&itemsFreqMap](const Transaction<T> &a, const Transaction<T> &b) {
+          size_t aFreq = 0;
+          for (auto &&i : a.items) {
+            aFreq += itemsFreqMap.at(i);
+          }
+          size_t bFreq = 0;
+          for (auto &&i : b.items) {
+            bFreq += itemsFreqMap.at(i);
+          }
+          return aFreq > bFreq;
+        });
   }
 };
