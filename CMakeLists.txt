@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-Wall --pedantic -O3 -g -finline-functions -march=native")
 #set(CMAKE_CXX_FLAGS "-Wall --pedantic -g -finline-functions -march=native")
 
-set(LIB_SOURCE_FILES src/panda.cc src/costutils.cc)
+set(LIB_SOURCE_FILES)
 
 add_executable(speedy-panda src/main.cc ${LIB_SOURCE_FILES})
 
@@ -33,3 +33,13 @@ add_executable(costutils_test tests/costutils.test.cc ${LIB_SOURCE_FILES} tests/
 target_compile_features(costutils_test PRIVATE cxx_std_17)
 target_include_directories(costutils_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(costutils costutils_test)
+
+add_executable(TransactionList_test tests/TransactionList.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
+target_compile_features(TransactionList_test PRIVATE cxx_std_17)
+target_include_directories(TransactionList_test PUBLIC ${DOCTEST_INCLUDE_DIR})
+add_test(TransactionList TransactionList_test)
+
+add_executable(PatternList_test tests/PatternList.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
+target_compile_features(PatternList_test PRIVATE cxx_std_17)
+target_include_directories(PatternList_test PUBLIC ${DOCTEST_INCLUDE_DIR})
+add_test(PatternList PatternList_test)

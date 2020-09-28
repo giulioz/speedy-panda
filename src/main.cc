@@ -13,46 +13,46 @@
 #include "panda.h"
 
 // Read transactions from a file given path, line by line and space separated
-TransactionList readTransactions(const std::string &path) {
-  TransactionList result;
+TransactionList<int> readIntTransactions(const std::string &path) {
+  TransactionList<int> result;
 
   std::ifstream infile(path);
   std::string line;
   while (std::getline(infile, line)) {
     std::stringstream ss(line);
     int val;
-    Transaction tr;
+    std::set<int> items;
 
     while (ss >> val) {
-      tr.insert(val);
+      items.insert(val);
       if (ss.peek() == ' ') ss.ignore();
     }
 
-    result.push_back(tr);
+    result.addTransaction(items);
   }
 
   return result;
 }
 
-float standardCostFunction(const PatternList &patterns,
-                           const TransactionList &dataset) {
+float standardCostFunction(const PatternList<int> &patterns,
+                           const TransactionList<int> &dataset) {
   // Noise from patterns vs dataset (Ja)
   int noise = calcNoise(patterns, dataset);
 
   // Pattern set complexity (Jh)
-  int complexity = calcPatternsComplexity(patterns);
+  int complexity = patterns.complexity;
 
   // Weight the two measures (Jp)
   return 0.8 * complexity + noise;
 }
 
 int main(int argc, char *argv[]) {
-  TransactionList dataset = readTransactions(argv[1]);
+  auto dataset = readIntTransactions(argv[1]);
 
-  auto patterns = panda<standardCostFunction>(8, dataset, 1.0, 1.0);
+  auto patterns = panda<int, standardCostFunction>(8, dataset, 1.0, 1.0);
 
   std::cout << "Patterns:" << std::endl;
-  for (auto &&p : patterns) {
+  for (auto &&p : patterns.patterns) {
     for (auto &&i : p.itemIds) {
       std::cout << i << " ";
     }
