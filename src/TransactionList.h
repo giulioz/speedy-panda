@@ -95,14 +95,14 @@ struct TransactionList {
     // Sort every transaction items
     for (size_t i = 0; i < transactions.size(); i++) {
       std::vector<T> &items = transactions[i].items;
-      std::sort(items.begin(), items.end(),
+      std::stable_sort(items.begin(), items.end(),
                 [&itemsFreqMap](const T &a, const T &b) {
                   return itemsFreqMap.at(a) > itemsFreqMap.at(b);
                 });
     }
 
     // Sort transactions
-    std::sort(
+    std::stable_sort(
         transactions.begin(), transactions.end(),
         [&itemsFreqMap](const Transaction<T> &a, const Transaction<T> &b) {
           size_t aFreq = 0;
