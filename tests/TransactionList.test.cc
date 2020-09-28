@@ -124,17 +124,17 @@ TEST_CASE("Sorting") {
   CHECK(compareArr(dataset.transactions[0].items, {2, 1, 0}));
   CHECK(dataset.transactions[1].trId == 1);
   CHECK(compareArr(dataset.transactions[1].items, {2, 0, 1}));
-  CHECK(dataset.transactions[2].trId == 6);
+  CHECK(dataset.transactions[2].trId == 3);
   CHECK(compareArr(dataset.transactions[2].items, {2, 1, 0}));
-  CHECK(dataset.transactions[3].trId == 3);
+  CHECK(dataset.transactions[3].trId == 4);
   CHECK(compareArr(dataset.transactions[3].items, {2, 1, 0}));
-  CHECK(dataset.transactions[4].trId == 4);
+  CHECK(dataset.transactions[4].trId == 6);
   CHECK(compareArr(dataset.transactions[4].items, {2, 1, 0}));
   CHECK(dataset.transactions[5].trId == 7);
   CHECK(compareArr(dataset.transactions[5].items, {2, 9, 7}));
-  CHECK(dataset.transactions[6].trId == 5);
+  CHECK(dataset.transactions[6].trId == 2);
   CHECK(compareArr(dataset.transactions[6].items, {3, 5, 8}));
-  CHECK(dataset.transactions[7].trId == 2);
+  CHECK(dataset.transactions[7].trId == 5);
   CHECK(compareArr(dataset.transactions[7].items, {3, 5, 8}));
 }
 
