@@ -75,6 +75,29 @@ struct TransactionList {
     }
   }
 
+  size_t tryRemovePattern(const Pattern<T> &pattern) const {
+    size_t count = elCount;
+
+    for (size_t i = 0; i < transactions.size(); i++) {
+      // if is in pattern transactions
+      if (pattern.transactionIds.count(transactions[i].trId) > 0) {
+        size_t found = 0;
+        
+        for (const auto &trItem : transactions[i].items) {
+          // if is not in pattern items we keep it
+          if (pattern.itemIds.count(trItem) == 0) {
+            found++;
+          }
+        }
+
+        const int diff = transactions[i].items.size() - found;
+        count -= diff;
+      }
+    }
+
+    return count;
+  }
+
   // Calculate the number of false positives given a pattern in the dataset
   size_t calcPatternFalsePositives(const Pattern<T> &pattern) const {
     size_t falsePositives = 0;

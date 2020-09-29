@@ -50,8 +50,11 @@ struct ResultState {
 
   float tryAddPattern(const Pattern<T> &pattern,
                       const float complexityWeight = 0.5) const {
-    ResultState<T> state2(*this);
-    state2.addPattern(pattern);
-    return state2.currentCost(complexityWeight);
+    size_t falsePositives =
+        currentFalsePositives + dataset.calcPatternFalsePositives(pattern);
+    size_t elCount = residualDataset.tryRemovePattern(pattern);
+
+    return complexityWeight * (patterns.complexity + pattern.getComplexity()) +
+           elCount + falsePositives;
   }
 };
