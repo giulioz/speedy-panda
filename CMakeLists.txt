@@ -43,3 +43,8 @@ add_executable(PatternList_test tests/PatternList.test.cc ${LIB_SOURCE_FILES} te
 target_compile_features(PatternList_test PRIVATE cxx_std_17)
 target_include_directories(PatternList_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(PatternList PatternList_test)
+
+add_executable(ResultState_test tests/ResultState.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
+target_compile_features(ResultState_test PRIVATE cxx_std_17)
+target_include_directories(ResultState_test PUBLIC ${DOCTEST_INCLUDE_DIR})
+add_test(ResultState ResultState_test)

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "PatternList.h"
+#include "ResultState.h"
 #include "TransactionList.h"
 
 /*
@@ -41,105 +42,44 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
   return ok;
 }
 
-template <typename T>
-size_t calcNoise(const PatternList<T> &patterns,
-                 const TransactionList<T> &dataset) {
-  size_t noise = 0;
-  for (size_t trId = 0; trId < dataset.size(); trId++) {
-    std::set<T> falsePositives;
-    std::set<T> falseNegatives(dataset.transactions[trId].items.cbegin(),
-                               dataset.transactions[trId].items.cend());
-
-    for (auto &&pattern : patterns.patterns) {
-      if (pattern.transactionIds.count(trId) > 0) {
-        for (auto &&i : pattern.itemIds) {
-          if (!dataset.transactions[trId].includes(i)) {
-            falsePositives.insert(i);
-          }
-          falseNegatives.erase(i);
-        }
-      }
-    }
-
-    falsePositives.merge(falseNegatives);
-    noise += falsePositives.size();
-  }
-
-  return noise;
-}
-
-template <typename T>
-float costFunction(const TransactionList<T> &dataset,
-                   const PatternList<T> &patterns) {
-  // Noise from patterns vs dataset (Ja)
-  size_t noise = calcNoise(patterns, dataset);
-
-  // Pattern set complexity (Jh)
-  size_t complexity = patterns.complexity;
-
-  // Weight the two measures (Jp)
-  return 0.5 * complexity + noise;
-}
-
-template <typename T>
-float costFunctionWithPattern(const TransactionList<T> &dataset,
-                              const PatternList<T> &patterns,
-                              const Pattern<T> &pattern) {
-  PatternList<T> p2 = patterns;
-  p2.addPattern(pattern);
-
-  // Noise from patterns vs dataset (Ja)
-  size_t noise = calcNoise(p2, dataset);
-
-  // Pattern set complexity (Jh)
-  size_t complexity = p2.complexity;
-
-  // Weight the two measures (Jp)
-  return 0.5 * complexity + noise;
-}
-
 /*
  * Core algorithm functions
  */
 
 template <typename T>
-std::pair<Pattern<T>, std::queue<T>> findCore(
-    TransactionList<T> &residualDataset, const PatternList<T> &patterns,
-    float patternsCost, const TransactionList<T> &dataset) {
+std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state) {
   std::queue<int> extensionList;
-  residualDataset.sortByFreq();
+  state.sortResidualDataset();
   Pattern<T> core;
 
-  const auto firstRow = residualDataset.transactions[0].items;
+  const auto firstRow = state.residualDataset.transactions[0].items;
   auto firstRowIter = firstRow.cbegin();
   auto firstRowEnd = firstRow.cend();
 
   core.itemIds.insert(*firstRowIter);
-  for (size_t i = 0; i < residualDataset.size(); i++) {
-    if (residualDataset.transactions[i].includes(*firstRowIter)) {
-      core.transactionIds.insert(residualDataset.transactions[i].trId);
+  for (size_t i = 0; i < state.residualDataset.size(); i++) {
+    if (state.residualDataset.transactions[i].includes(*firstRowIter)) {
+      core.transactionIds.insert(state.residualDataset.transactions[i].trId);
     }
   }
   firstRowIter++;
 
-  float coreCost =
-      costFunctionWithPattern(dataset, patterns, core);
+  float currentCost = state.tryAddPattern(core);
 
   while (firstRowIter != firstRowEnd) {
     Pattern<T> candidate = core;
     candidate.itemIds.insert(*firstRowIter);
-    for (size_t i = 0; i < residualDataset.size(); i++) {
-      if (residualDataset.transactions[i].includes(*firstRowIter)) {
-        candidate.transactionIds.erase(residualDataset.transactions[i].trId);
+    for (size_t i = 0; i < state.residualDataset.size(); i++) {
+      if (state.residualDataset.transactions[i].includes(*firstRowIter)) {
+        candidate.transactionIds.erase(
+            state.residualDataset.transactions[i].trId);
       }
     }
 
-    float candidateCost =
-        costFunctionWithPattern(dataset, patterns, candidate);
-
-    if (candidateCost <= coreCost) {
+    float candidateCost = state.tryAddPattern(candidate);
+    if (candidateCost <= currentCost) {
       core = candidate;
-      coreCost = candidateCost;
+      currentCost = candidateCost;
     } else {
       extensionList.push(*firstRowIter);
     }
@@ -151,28 +91,25 @@ std::pair<Pattern<T>, std::queue<T>> findCore(
 }
 
 template <typename T>
-Pattern<T> extendCore(Pattern<T> &core, std::queue<int> &extensionList,
-                      const PatternList<T> &patterns, float patternsCost,
-                      const TransactionList<T> &dataset, float maxRowNoise,
+Pattern<T> extendCore(ResultState<T> &state, Pattern<T> &core,
+                      std::queue<int> &extensionList, float maxRowNoise,
                       float maxColumnNoise) {
   bool addedItem = true;
 
-  float coreCost =
-      costFunctionWithPattern(dataset, patterns, core);
-
   while (addedItem) {
-    for (size_t trId = 0; trId < dataset.size(); trId++) {
+    float currentCost = state.tryAddPattern(core);
+
+    for (size_t trId = 0; trId < state.dataset.size(); trId++) {
       if (core.transactionIds.count(trId) == 0) {
         Pattern<T> candidate = core;
         candidate.transactionIds.insert(trId);
 
-        if (notTooNoisy(dataset, candidate, maxRowNoise, maxColumnNoise)) {
-          float candidateCost = costFunctionWithPattern(
-              dataset, patterns, candidate);
-
-          if (candidateCost <= coreCost) {
+        if (notTooNoisy(state.dataset, candidate, maxRowNoise,
+                        maxColumnNoise)) {
+          float candidateCost = state.tryAddPattern(candidate);
+          if (candidateCost <= currentCost) {
             core = candidate;
-            coreCost = candidateCost;
+            currentCost = candidateCost;
           }
         }
       }
@@ -186,13 +123,11 @@ Pattern<T> extendCore(Pattern<T> &core, std::queue<int> &extensionList,
       Pattern<T> candidate = core;
       candidate.itemIds.insert(extension);
 
-      if (notTooNoisy(dataset, candidate, maxRowNoise, maxColumnNoise)) {
-        float candidateCost =
-            costFunctionWithPattern(dataset, patterns, candidate);
-
-        if (candidateCost <= coreCost) {
+      if (notTooNoisy(state.dataset, candidate, maxRowNoise, maxColumnNoise)) {
+        float candidateCost = state.tryAddPattern(candidate);
+        if (candidateCost <= currentCost) {
           core = candidate;
-          coreCost = candidateCost;
+          currentCost = candidateCost;
           addedItem = true;
           break;
         }
@@ -206,29 +141,24 @@ Pattern<T> extendCore(Pattern<T> &core, std::queue<int> &extensionList,
 template <typename T>
 PatternList<T> panda(int maxK, const TransactionList<T> &dataset,
                      float maxRowNoise, float maxColumnNoise) {
-  PatternList<T> patterns;
-  TransactionList<T> residualDataset = dataset;
+  ResultState<T> state(dataset);
 
   for (int i = 0; i < maxK; i++) {
-    float patternsCost = costFunction(dataset, patterns);
+    auto [core, extensionList] = findCore(state);
+    core = extendCore(state, core, extensionList, maxRowNoise, maxColumnNoise);
 
-    auto [core, extensionList] =
-        findCore(residualDataset, patterns, patternsCost, dataset);
-    core = extendCore(core, extensionList, patterns, patternsCost, dataset,
-                      maxRowNoise, maxColumnNoise);
-
-    if (patternsCost < costFunctionWithPattern(dataset, patterns, core)) {
+    if (state.currentCost() < state.tryAddPattern(core)) {
       // J cannot be improved any more
       break;
     }
 
-    patterns.addPattern(core);
-    residualDataset.removePattern(core);
+    state.addPattern(core);
 
-    if (residualDataset.elCount == 0) {
+    if (state.residualDataset.elCount == 0) {
+      // No more data to explain
       break;
     }
   }
 
-  return patterns;
+  return state.patterns;
 }

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#include <initializer_list>
+#include <list>
 #include <map>
 #include <vector>
 
@@ -39,7 +41,7 @@ struct TransactionList {
       : transactions(other.transactions), elCount(other.elCount) {}
 
   void addTransaction(const std::initializer_list<T> &elements) {
-    addTransaction(Transaction(elements));
+    addTransaction(Transaction<T>(elements));
   }
 
   // Also sets trId
@@ -56,20 +58,36 @@ struct TransactionList {
     for (size_t i = 0; i < transactions.size(); i++) {
       // if is in pattern transactions
       if (pattern.transactionIds.count(transactions[i].trId) > 0) {
-        std::vector<T> resultRow;
+        std::list<T> resultRow;
 
         for (const auto &trItem : transactions[i].items) {
-          // if is in pattern items
+          // if is not in pattern items we keep it
           if (pattern.itemIds.count(trItem) == 0) {
             resultRow.push_back(trItem);
           }
         }
 
         const int diff = transactions[i].items.size() - resultRow.size();
-        transactions[i].items = resultRow;
+        transactions[i].items =
+            std::vector<T>(resultRow.begin(), resultRow.end());
         elCount -= diff;
       }
     }
+  }
+
+  // Calculate the number of false positives given a pattern in the dataset
+  size_t calcPatternFalsePositives(const Pattern<T> &pattern) const {
+    size_t falsePositives = 0;
+
+    for (auto &&trId : pattern.transactionIds) {
+      for (auto &&itemId : pattern.itemIds) {
+        if (!transactions[trId].includes(itemId)) {
+          falsePositives++;
+        }
+      }
+    }
+
+    return falsePositives;
   }
 
   // Build a frequency map for every item
@@ -96,9 +114,9 @@ struct TransactionList {
     for (size_t i = 0; i < transactions.size(); i++) {
       std::vector<T> &items = transactions[i].items;
       std::stable_sort(items.begin(), items.end(),
-                [&itemsFreqMap](const T &a, const T &b) {
-                  return itemsFreqMap.at(a) > itemsFreqMap.at(b);
-                });
+                       [&itemsFreqMap](const T &a, const T &b) {
+                         return itemsFreqMap.at(a) > itemsFreqMap.at(b);
+                       });
     }
 
     // Sort transactions

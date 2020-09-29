@@ -1,5 +1,6 @@
 #pragma once
 
+#include <initializer_list>
 #include <set>
 #include <vector>
 
@@ -11,8 +12,13 @@ struct Pattern {
   // Empty constructor
   Pattern() {}
 
+  Pattern(const std::initializer_list<T> &itemIds,
+          const std::initializer_list<size_t> &transactionIds)
+      : itemIds(itemIds.begin(), itemIds.end()),
+        transactionIds(transactionIds.begin(), transactionIds.end()) {}
+
   // Copy constructor
-  Pattern(const Pattern &other)
+  Pattern(const Pattern<T> &other)
       : itemIds(other.itemIds), transactionIds(other.transactionIds) {}
 
   size_t getComplexity() const {
