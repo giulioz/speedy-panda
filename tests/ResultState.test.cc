@@ -5,6 +5,25 @@
 #include "doctest.h"
 
 TEST_CASE("Noise Calculation") {
+  SUBCASE("Overlapping") {
+    TransactionList dataset;
+    dataset.addTransaction({0, 1, 2});
+    dataset.addTransaction({0, 2, 3, 4});
+    dataset.addTransaction({0, 1, 2, 3, 4});
+    dataset.addTransaction({2, 3});
+    dataset.addTransaction({0});
+    ResultState state(dataset);
+    CHECK(state.currentNoise() == 15);
+    CHECK(state.tryAddPattern(Pattern({0, 1, 2}, {0, 1, 2}), 0.5) ==
+          doctest::Approx(6 / 2 + 8).epsilon(0.01));
+    state.addPattern(Pattern({0, 1, 2}, {0, 1, 2}));
+    CHECK(state.currentNoise() == 8);
+    CHECK(state.tryAddPattern(Pattern({2, 3, 4}, {1, 2, 3}), 0.5) ==
+          doctest::Approx(12 / 2 + 3).epsilon(0.01));
+    state.addPattern(Pattern({2, 3, 4}, {1, 2, 3}));
+    CHECK(state.currentNoise() == 3);
+  }
+
   SUBCASE("Overlapping False Positives") {
     TransactionList dataset;
     dataset.addTransaction({0, 1});
