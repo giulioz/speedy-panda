@@ -55,10 +55,11 @@ std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state) {
   const auto firstRow = state.residualDataset.transactions[0].items;
   auto firstRowIter = firstRow.cbegin();
   auto firstRowEnd = firstRow.cend();
+  auto s1 = *firstRowIter;
 
-  core.itemIds.insert(*firstRowIter);
+  core.itemIds.insert(s1);
   for (size_t i = 0; i < state.residualDataset.size(); i++) {
-    if (state.residualDataset.transactions[i].includes(*firstRowIter)) {
+    if (state.residualDataset.transactions[i].includes(s1)) {
       core.transactionIds.insert(state.residualDataset.transactions[i].trId);
     }
   }
@@ -68,9 +69,10 @@ std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state) {
 
   while (firstRowIter != firstRowEnd) {
     Pattern<T> candidate = core;
-    candidate.itemIds.insert(*firstRowIter);
+    auto sh = *firstRowIter;
+    candidate.itemIds.insert(sh);
     for (size_t i = 0; i < state.residualDataset.size(); i++) {
-      if (state.residualDataset.transactions[i].includes(*firstRowIter)) {
+      if (!state.residualDataset.transactions[i].includes(sh)) {
         candidate.transactionIds.erase(
             state.residualDataset.transactions[i].trId);
       }
@@ -81,7 +83,7 @@ std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state) {
       core = candidate;
       currentCost = candidateCost;
     } else {
-      extensionList.push(*firstRowIter);
+      extensionList.push(sh);
     }
 
     firstRowIter++;
