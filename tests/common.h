@@ -15,7 +15,7 @@ bool compareArr(const A &a, const std::initializer_list<T> &b) {
 }
 
 template <typename A, typename T>
-bool compareSet(const std::set<A> &a, const std::initializer_list<T> &b) {
+bool compareSet(const A &a, const std::initializer_list<T> &b) {
   for (auto &&i : b) {
     if (a.count(i) == 0) return false;
   }

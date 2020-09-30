@@ -1,13 +1,13 @@
 #pragma once
 
 #include <initializer_list>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 template <typename T = int>
 struct Pattern {
-  std::set<T> itemIds;
-  std::set<size_t> transactionIds;
+  std::unordered_set<T> itemIds;
+  std::unordered_set<size_t> transactionIds;
 
   // Empty constructor
   Pattern() {}
@@ -21,8 +21,22 @@ struct Pattern {
   Pattern(const Pattern<T> &other)
       : itemIds(other.itemIds), transactionIds(other.transactionIds) {}
 
-  size_t getComplexity() const {
+  inline size_t getComplexity() const {
     return itemIds.size() + transactionIds.size();
+  }
+
+  inline void addItem(const T item) { itemIds.insert(item); }
+  inline void addTransaction(const size_t transaction) {
+    transactionIds.insert(transaction);
+  }
+
+  inline void removeTransaction(const size_t transaction) {
+    transactionIds.erase(transaction);
+  }
+
+  inline bool hasItem(const T item) const { return itemIds.count(item) > 0; }
+  inline bool hasTransaction(const size_t transaction) const {
+    return transactionIds.count(transaction) > 0;
   }
 };
 
@@ -33,6 +47,9 @@ struct PatternList {
 
   // Empty constructor
   PatternList() {}
+
+  // Reserve size
+  PatternList(size_t size) { patterns.reserve(size); }
 
   // Copy constructor
   PatternList(const PatternList &other)

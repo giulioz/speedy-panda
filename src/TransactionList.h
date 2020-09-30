@@ -57,12 +57,12 @@ struct TransactionList {
   void removePattern(const Pattern<T> &pattern) {
     for (size_t i = 0; i < transactions.size(); i++) {
       // if is in pattern transactions
-      if (pattern.transactionIds.count(transactions[i].trId) > 0) {
+      if (pattern.hasTransaction(transactions[i].trId) > 0) {
         std::list<T> resultRow;
 
         for (const auto &trItem : transactions[i].items) {
           // if is not in pattern items we keep it
-          if (pattern.itemIds.count(trItem) == 0) {
+          if (pattern.hasItem(trItem) == 0) {
             resultRow.push_back(trItem);
           }
         }
@@ -80,12 +80,12 @@ struct TransactionList {
 
     for (size_t i = 0; i < transactions.size(); i++) {
       // if is in pattern transactions
-      if (pattern.transactionIds.count(transactions[i].trId) > 0) {
+      if (pattern.hasTransaction(transactions[i].trId) > 0) {
         size_t found = 0;
-        
+
         for (const auto &trItem : transactions[i].items) {
           // if is not in pattern items we keep it
-          if (pattern.itemIds.count(trItem) == 0) {
+          if (pattern.hasItem(trItem) == 0) {
             found++;
           }
         }
