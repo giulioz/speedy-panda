@@ -40,7 +40,6 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
   }
 
   return ok;
-  // return true;
 }
 
 /*
