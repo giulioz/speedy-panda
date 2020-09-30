@@ -36,7 +36,7 @@ TEST_CASE("findCore") {
     dataset.addTransaction({0, 1, 2});
     dataset.addTransaction({0, 1, 2});
     ResultState state(dataset);
-    auto [core, extensionList] = findCore(state);
+    auto [core, extensionList] = findCore(state, 0.5);
     CHECK(compareSet(core.itemIds, {0, 1, 2}));
     CHECK(compareSet(core.transactionIds, {0, 1}));
   }
@@ -46,7 +46,7 @@ TEST_CASE("findCore") {
     dataset.addTransaction({0, 1});
     dataset.addTransaction({0, 1});
     ResultState state(dataset);
-    auto [core, extensionList] = findCore(state);
+    auto [core, extensionList] = findCore(state, 0.5);
     CHECK(compareSet(core.itemIds, {0, 1}));
     CHECK(compareSet(core.transactionIds, {0, 1, 2}));
   }
@@ -56,7 +56,7 @@ TEST_CASE("findCore") {
     dataset.addTransaction({0, 1, 2, 3});
     dataset.addTransaction({0});
     ResultState state(dataset);
-    auto [core, extensionList] = findCore(state);
+    auto [core, extensionList] = findCore(state, 0.5);
     CHECK(compareSet(core.itemIds, {0, 1, 2}));
     CHECK(compareSet(core.transactionIds, {0, 1}));
   }
@@ -69,7 +69,7 @@ TEST_CASE("findCore") {
     dataset.addTransaction({1, 0});
     dataset.addTransaction({1, 2});
     ResultState state(dataset);
-    auto [core, extensionList] = findCore(state);
+    auto [core, extensionList] = findCore(state, 0.5);
     CHECK(compareSet(core.itemIds, {0, 1}));
     CHECK(compareSet(core.transactionIds, {0, 1, 3, 4}));
   }
@@ -81,8 +81,8 @@ TEST_CASE("extendCore") {
     dataset.addTransaction({0, 1, 2});
     dataset.addTransaction({0, 1, 2});
     ResultState state(dataset);
-    auto [core, extensionList] = findCore(state);
-    core = extendCore(state, core, extensionList, 0.5, 0.5);
+    auto [core, extensionList] = findCore(state, 0.5);
+    core = extendCore(state, core, extensionList, 1.0, 1.0, 0.5);
     CHECK(compareSet(core.itemIds, {0, 1, 2}));
     CHECK(compareSet(core.transactionIds, {0, 1}));
   }
@@ -94,64 +94,34 @@ TEST_CASE("extendCore") {
     dataset.addTransaction({0, 1, 2});
     dataset.addTransaction({0, 1});
     ResultState state(dataset);
-    auto [core, extensionList] = findCore(state);
-    core = extendCore(state, core, extensionList, 0.5, 0.5);
+    auto [core, extensionList] = findCore(state, 0.5);
+    core = extendCore(state, core, extensionList, 1.0, 1.0, 0.5);
     CHECK(compareSet(core.itemIds, {0, 1, 2}));
     CHECK(compareSet(core.transactionIds, {0, 1, 2, 3, 4}));
   }
   SUBCASE("Sparse 2") {
     TransactionList dataset;
     dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1});
+    dataset.addTransaction({0, 1, 2, 3});
+    dataset.addTransaction({0});
     ResultState state(dataset);
-    auto [core, extensionList] = findCore(state);
-    core = extendCore(state, core, extensionList, 0, 1.0);
-    // std::cout << "Items: ";
-    // for (auto &&i : core.itemIds) {
-    //   std::cout << i << " ";
-    // }
-    // std::cout << "  Transactions:";
-    // for (auto &&i : core.transactionIds) {
-    //   std::cout << i << " ";
-    // }
-    // std::cout << std::endl;
+    auto [core, extensionList] = findCore(state, 0.5);
+    core = extendCore(state, core, extensionList, 1.0, 1.0, 0.5);
     CHECK(compareSet(core.itemIds, {0, 1, 2}));
-    CHECK(compareSet(core.transactionIds, {0, 1, 2, 3}));
+    CHECK(compareSet(core.transactionIds, {0, 1}));
   }
   SUBCASE("Sparse 3") {
     TransactionList dataset;
     dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1});
-    ResultState state(dataset);
-    auto [core, extensionList] = findCore(state);
-    core = extendCore(state, core, extensionList, 1.0, 0);
-    std::cout << "Items: ";
-    for (auto &&i : core.itemIds) {
-      std::cout << i << " ";
-    }
-    std::cout << "  Transactions:";
-    for (auto &&i : core.transactionIds) {
-      std::cout << i << " ";
-    }
-    std::cout << std::endl;
-    CHECK(compareSet(core.itemIds, {0, 1, 2}));
-    CHECK(compareSet(core.transactionIds, {0, 1, 2, 3}));
-  }
-  SUBCASE("Sparse 4") {
-    TransactionList dataset;
-    dataset.addTransaction({0, 1, 2});
     dataset.addTransaction({0, 1, 2, 3});
     dataset.addTransaction({0});
+    dataset.addTransaction({0, 1});
+    dataset.addTransaction({1, 0});
+    dataset.addTransaction({1, 2});
     ResultState state(dataset);
-    auto [core, extensionList] = findCore(state);
-    core = extendCore(state, core, extensionList, 1.0, 1.0);
-    CHECK(compareSet(core.itemIds, {0, 1, 2}));
-    CHECK(compareSet(core.transactionIds, {0, 1}));
+    auto [core, extensionList] = findCore(state, 0.5);
+    core = extendCore(state, core, extensionList, 1.0, 1.0, 0.5);
+    CHECK(compareSet(core.itemIds, {0, 1}));
+    CHECK(compareSet(core.transactionIds, {0, 1, 3, 4}));
   }
 }

@@ -47,7 +47,8 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
  */
 
 template <typename T>
-std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state) {
+std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state,
+                                              float complexityWeight) {
   std::queue<T> extensionList;
   state.sortResidualDataset();
   Pattern<T> core;
@@ -65,7 +66,7 @@ std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state) {
   }
   firstRowIter++;
 
-  float currentCost = state.tryAddPattern(core);
+  float currentCost = state.tryAddPattern(core, complexityWeight);
 
   while (firstRowIter != firstRowEnd) {
     Pattern<T> candidate = core;
@@ -77,7 +78,7 @@ std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state) {
       }
     }
 
-    float candidateCost = state.tryAddPattern(candidate);
+    float candidateCost = state.tryAddPattern(candidate, complexityWeight);
     if (candidateCost <= currentCost) {
       core = candidate;
       currentCost = candidateCost;
@@ -94,11 +95,11 @@ std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state) {
 template <typename T>
 Pattern<T> extendCore(ResultState<T> &state, Pattern<T> &core,
                       std::queue<T> &extensionList, float maxRowNoise,
-                      float maxColumnNoise) {
+                      float maxColumnNoise, float complexityWeight) {
   bool addedItem = true;
 
   while (addedItem) {
-    float currentCost = state.tryAddPattern(core);
+    float currentCost = state.tryAddPattern(core, complexityWeight);
 
     for (size_t trId = 0; trId < state.dataset.size(); trId++) {
       if (core.hasTransaction(trId) == 0) {
@@ -107,7 +108,8 @@ Pattern<T> extendCore(ResultState<T> &state, Pattern<T> &core,
 
         if (notTooNoisy(state.dataset, candidate, maxRowNoise,
                         maxColumnNoise)) {
-          float candidateCost = state.tryAddPattern(candidate);
+          float candidateCost =
+              state.tryAddPattern(candidate, complexityWeight);
           if (candidateCost <= currentCost) {
             core = candidate;
             currentCost = candidateCost;
@@ -124,7 +126,7 @@ Pattern<T> extendCore(ResultState<T> &state, Pattern<T> &core,
       candidate.addItem(extension);
 
       if (notTooNoisy(state.dataset, candidate, maxRowNoise, maxColumnNoise)) {
-        float candidateCost = state.tryAddPattern(candidate);
+        float candidateCost = state.tryAddPattern(candidate, complexityWeight);
         if (candidateCost <= currentCost) {
           core = candidate;
           currentCost = candidateCost;
@@ -140,14 +142,16 @@ Pattern<T> extendCore(ResultState<T> &state, Pattern<T> &core,
 
 template <typename T>
 PatternList<T> panda(int maxK, const TransactionList<T> &dataset,
-                     float maxRowNoise, float maxColumnNoise) {
+                     float maxRowNoise, float maxColumnNoise,
+                     float complexityWeight) {
   ResultState<T> state(dataset, PatternList<T>(maxK));
 
   for (int i = 0; i < maxK; i++) {
-    auto [core, extensionList] = findCore(state);
-    core = extendCore(state, core, extensionList, maxRowNoise, maxColumnNoise);
+    auto [core, extensionList] = findCore(state, complexityWeight);
+    core = extendCore(state, core, extensionList, maxRowNoise, maxColumnNoise,
+                      complexityWeight);
 
-    if (state.currentCost() < state.tryAddPattern(core)) {
+    if (state.currentCost() < state.tryAddPattern(core, complexityWeight)) {
       // J cannot be improved any more
       break;
     }
