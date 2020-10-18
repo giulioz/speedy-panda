@@ -98,12 +98,12 @@ Pattern<T> extendCore(ResultState<T> &state, Pattern<T> &core,
                       float maxColumnNoise, float complexityWeight) {
   bool addedItem = true;
 
-  while (addedItem) {
-    float currentCost = state.tryAddPattern(core, complexityWeight);
+  float currentCost = state.tryAddPattern(core, complexityWeight);
+  Pattern<T> candidate = core;
 
+  while (addedItem) {
     for (size_t trId = 0; trId < state.dataset.size(); trId++) {
       if (core.hasTransaction(trId) == 0) {
-        Pattern<T> candidate = core;
         candidate.addTransaction(trId);
 
         if (notTooNoisy(state.dataset, candidate, maxRowNoise,
@@ -111,8 +111,9 @@ Pattern<T> extendCore(ResultState<T> &state, Pattern<T> &core,
           float candidateCost =
               state.tryAddPattern(candidate, complexityWeight);
           if (candidateCost <= currentCost) {
-            core = candidate;
             currentCost = candidateCost;
+          } else {
+            candidate.removeTransaction(trId);
           }
         }
       }
@@ -122,22 +123,22 @@ Pattern<T> extendCore(ResultState<T> &state, Pattern<T> &core,
     while (!extensionList.empty()) {
       auto extension = extensionList.front();
       extensionList.pop();
-      Pattern<T> candidate = core;
       candidate.addItem(extension);
 
       if (notTooNoisy(state.dataset, candidate, maxRowNoise, maxColumnNoise)) {
         float candidateCost = state.tryAddPattern(candidate, complexityWeight);
         if (candidateCost <= currentCost) {
-          core = candidate;
           currentCost = candidateCost;
           addedItem = true;
           break;
+        } else {
+          candidate.removeItem(extension);
         }
       }
     }
   }
 
-  return core;
+  return candidate;
 }
 
 template <typename T>

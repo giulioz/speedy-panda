@@ -30,6 +30,7 @@ struct Pattern {
     transactionIds.insert(transaction);
   }
 
+  inline void removeItem(const T item) { itemIds.erase(item); }
   inline void removeTransaction(const size_t transaction) {
     transactionIds.erase(transaction);
   }
