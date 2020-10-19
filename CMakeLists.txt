@@ -27,6 +27,7 @@ set(CMAKE_CXX_FLAGS "-Wall --pedantic -O3 -g -finline-functions -march=native")
 set(LIB_SOURCE_FILES)
 
 add_executable(speedy-panda src/main.cc ${LIB_SOURCE_FILES})
+add_dependencies(speedy-panda args)
 target_include_directories(speedy-panda PUBLIC ${ARGS_INCLUDE_DIR})
 
 
@@ -48,17 +49,21 @@ set(DOCTEST_INCLUDE_DIR ${source_dir}/doctest CACHE INTERNAL "Path to include fo
 enable_testing()
 
 add_executable(Panda_test tests/Panda.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
+add_dependencies(Panda_test doctest)
 target_include_directories(Panda_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(Panda Panda_test)
 
 add_executable(TransactionList_test tests/TransactionList.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
+add_dependencies(TransactionList_test doctest)
 target_include_directories(TransactionList_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(TransactionList TransactionList_test)
 
 add_executable(PatternList_test tests/PatternList.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
+add_dependencies(PatternList_test doctest)
 target_include_directories(PatternList_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(PatternList PatternList_test)
 
 add_executable(ResultState_test tests/ResultState.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
+add_dependencies(ResultState_test doctest)
 target_include_directories(ResultState_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(ResultState ResultState_test)
