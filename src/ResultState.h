@@ -31,13 +31,11 @@ struct ResultState {
         residualDataset(other.residualDataset),
         currentFalsePositives(other.currentFalsePositives) {}
 
-  void sortResidualDataset() { residualDataset.sortByFreq(); }
-
   inline size_t currentNoise() const {
     return residualDataset.elCount + currentFalsePositives;
   }
 
-  inline float currentCost(const float complexityWeight = 0.5) const {
+  inline float currentCost(const float complexityWeight) const {
     return complexityWeight * patterns.complexity + currentNoise();
   }
 
@@ -49,12 +47,32 @@ struct ResultState {
   }
 
   float tryAddPattern(const Pattern<T> &pattern,
-                      const float complexityWeight = 0.5) const {
+                      const float complexityWeight) const {
     size_t falsePositives =
         currentFalsePositives + dataset.calcPatternFalsePositives(pattern);
     size_t elCount = residualDataset.tryRemovePattern(pattern);
 
     return complexityWeight * (patterns.complexity + pattern.getComplexity()) +
            elCount + falsePositives;
+  }
+
+  float tryAddTransaction(const Pattern<T> &pattern, const size_t trId,
+                          const float complexityWeight) const {
+    size_t falsePositives = currentFalsePositives;
+    for (auto &&itemId : pattern.itemIds) {
+      if (!dataset.transactions[trId].includes(itemId)) {
+        falsePositives++;
+      }
+    }
+
+    size_t falseNegatives = residualDataset.elCount;
+    for (auto &&itemId : pattern.itemIds) {
+      if (residualDataset.transactions.at(trId).includes(itemId)) {
+        falseNegatives--;
+      }
+    }
+
+    return complexityWeight * (patterns.complexity + pattern.getComplexity()) +
+           falseNegatives + falsePositives;
   }
 };

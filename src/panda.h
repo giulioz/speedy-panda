@@ -25,7 +25,7 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
   for (auto &&j : core.itemIds) {
     int columnSum = 0;
     for (auto &&i : core.transactionIds) {
-      columnSum += dataset.transactions[i].includes(j);
+      columnSum += trIncludeItem(dataset.transactions[i], j);
     }
     ok &= columnSum >= maxColumn;
   }
@@ -34,12 +34,17 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
   for (auto &&i : core.transactionIds) {
     int rowSum = 0;
     for (auto &&j : core.itemIds) {
-      rowSum += dataset.transactions[i].includes(j);
+      rowSum += trIncludeItem(dataset.transactions[i], j);
     }
     ok &= rowSum >= maxRow;
   }
 
   return ok;
+}
+
+inline float costFunction(size_t falsePositives, size_t falseNegatives,
+                          size_t complexity, float complexityWeight) {
+  return complexityWeight * complexity + (falsePositives + falseNegatives);
 }
 
 /*
@@ -50,99 +55,146 @@ template <typename T>
 std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state,
                                               float complexityWeight) {
   std::queue<T> extensionList;
-  state.sortResidualDataset();
   Pattern<T> core;
 
-  const auto firstRow = state.residualDataset.transactions[0].items;
-  auto firstRowIter = firstRow.cbegin();
-  auto firstRowEnd = firstRow.cend();
-  auto s1 = *firstRowIter;
+  if (state.residualDataset.size() == 0) {
+    return std::make_pair(core, extensionList);
+  }
 
+  size_t falseNegatives = state.residualDataset.elCount;
+
+  const auto sorted = state.residualDataset.itemsByFreq();
+  auto s1 = sorted[0];
   core.addItem(s1);
+
   for (size_t i = 0; i < state.residualDataset.size(); i++) {
-    if (state.residualDataset.transactions[i].includes(s1)) {
-      core.addTransaction(state.residualDataset.transactions[i].trId);
+    if (trIncludeItem(state.residualDataset.transactions[i], s1)) {
+      core.addTransaction(i);
+      falseNegatives--;
     }
   }
-  firstRowIter++;
 
-  float currentCost = state.tryAddPattern(core, complexityWeight);
+  float currentCost = costFunction(
+      state.currentFalsePositives, falseNegatives,
+      state.patterns.complexity + core.getComplexity(), complexityWeight);
 
-  while (firstRowIter != firstRowEnd) {
-    Pattern<T> candidate = core;
-    auto sh = *firstRowIter;
+  for (size_t i = 1; i < sorted.size(); i++) {
+    const auto sh = sorted[i];
+    size_t falseNegativesCandidate = falseNegatives;
+
+    Pattern<T> candidate(core.itemIds);
     candidate.addItem(sh);
-    for (size_t i = 0; i < state.residualDataset.size(); i++) {
-      if (!state.residualDataset.transactions[i].includes(sh)) {
-        candidate.removeTransaction(state.residualDataset.transactions[i].trId);
+    for (auto &&trId : core.transactionIds) {
+      if (trIncludeItem(state.residualDataset.transactions[trId], sh)) {
+        candidate.addTransaction(trId);
+        falseNegativesCandidate--;
+      } else {
+        falseNegativesCandidate += candidate.itemIds.size();
       }
     }
 
-    float candidateCost = state.tryAddPattern(candidate, complexityWeight);
+    float candidateCost =
+        costFunction(state.currentFalsePositives, falseNegativesCandidate,
+                     state.patterns.complexity + candidate.getComplexity(),
+                     complexityWeight);
     if (candidateCost <= currentCost) {
-      core = candidate;
+      core = std::move(candidate);
       currentCost = candidateCost;
+      falseNegatives = falseNegativesCandidate;
     } else {
       extensionList.push(sh);
     }
-
-    firstRowIter++;
   }
 
   return std::make_pair(core, extensionList);
 }
 
 template <typename T>
-Pattern<T> extendCore(ResultState<T> &state, Pattern<T> &core,
+Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
                       std::queue<T> &extensionList, float maxRowNoise,
                       float maxColumnNoise, float complexityWeight) {
+  Pattern<T> currentCore = core;
+
+  size_t falsePositives = state.currentFalsePositives;
+  size_t falseNegatives = state.residualDataset.elCount;
+
+  float currentCost =
+      costFunction(falsePositives, falseNegatives,
+                   state.patterns.complexity + currentCore.getComplexity(),
+                   complexityWeight);
+
   bool addedItem = true;
-
-  float currentCost = state.tryAddPattern(core, complexityWeight);
-  Pattern<T> candidate = core;
-
   while (addedItem) {
-    for (size_t trId = 0; trId < state.dataset.size(); trId++) {
-      if (core.hasTransaction(trId) == 0) {
-        candidate.addTransaction(trId);
+    const auto uncoveredTransactions =
+        currentCore.transactionsUncovered(state.dataset.size());
 
-        if (notTooNoisy(state.dataset, candidate, maxRowNoise,
-                        maxColumnNoise)) {
-          float candidateCost =
-              state.tryAddPattern(candidate, complexityWeight);
-          if (candidateCost <= currentCost) {
-            currentCost = candidateCost;
-          } else {
-            candidate.removeTransaction(trId);
-          }
+    for (auto &&trId : uncoveredTransactions) {
+      size_t falsePositivesCandidate = falsePositives;
+      size_t falseNegativesCandidate = falseNegatives;
+
+      size_t foundItems = 0;
+      for (auto &&item : state.dataset.transactions[trId]) {
+        if (currentCore.hasItem(item)) {
+          foundItems++;
+          falseNegatives--;
         }
+      }
+      falsePositivesCandidate += currentCore.itemIds.size() - foundItems;
+
+      float candidateCost = costFunction(
+          falsePositivesCandidate, falseNegativesCandidate,
+          state.patterns.complexity + currentCore.getComplexity() + 1,
+          complexityWeight);
+
+      if (candidateCost <= currentCost) {
+        // std::cout << "ADDED TRANSACTION" << std::endl;
+        currentCore.addTransaction(trId);
+        currentCost = candidateCost;
+        falsePositives = falsePositivesCandidate;
+        falseNegatives = falseNegativesCandidate;
       }
     }
 
     addedItem = false;
-    while (!extensionList.empty()) {
-      auto extension = extensionList.front();
-      extensionList.pop();
-      candidate.addItem(extension);
 
-      if (notTooNoisy(state.dataset, candidate, maxRowNoise, maxColumnNoise)) {
-        float candidateCost = state.tryAddPattern(candidate, complexityWeight);
-        if (candidateCost <= currentCost) {
-          currentCost = candidateCost;
-          addedItem = true;
-          break;
+    while (!extensionList.empty()) {
+      const auto extension = extensionList.front();
+      extensionList.pop();
+
+      size_t falsePositivesCandidate = falsePositives;
+      size_t falseNegativesCandidate = falseNegatives;
+
+      for (auto &&trId : currentCore.transactionIds) {
+        if (trIncludeItem(state.residualDataset.transactions[trId],
+                          extension)) {
+          falseNegativesCandidate--;
         } else {
-          candidate.removeItem(extension);
+          falsePositivesCandidate++;
         }
+      }
+
+      float candidateCost = costFunction(
+          falsePositivesCandidate, falseNegativesCandidate,
+          state.patterns.complexity + currentCore.getComplexity() + 1,
+          complexityWeight);
+      if (candidateCost <= currentCost) {
+        // std::cout << "ADDED ITEM" << std::endl;
+        currentCore.addItem(extension);
+        currentCost = candidateCost;
+        falsePositives = falsePositivesCandidate;
+        falseNegatives = falseNegativesCandidate;
+
+        addedItem = true;
+        break;
       }
     }
   }
 
-  return candidate;
+  return currentCore;
 }
 
 template <typename T>
-PatternList<T> panda(int maxK, const TransactionList<T> &dataset,
+ResultState<T> panda(int maxK, const TransactionList<T> &dataset,
                      float maxRowNoise, float maxColumnNoise,
                      float complexityWeight) {
   ResultState<T> state(dataset, PatternList<T>(maxK));
@@ -152,7 +204,8 @@ PatternList<T> panda(int maxK, const TransactionList<T> &dataset,
     core = extendCore(state, core, extensionList, maxRowNoise, maxColumnNoise,
                       complexityWeight);
 
-    if (state.currentCost() < state.tryAddPattern(core, complexityWeight)) {
+    if (state.currentCost(complexityWeight) <
+        state.tryAddPattern(core, complexityWeight)) {
       // J cannot be improved any more
       break;
     }
@@ -165,5 +218,5 @@ PatternList<T> panda(int maxK, const TransactionList<T> &dataset,
     }
   }
 
-  return state.patterns;
+  return state;
 }

@@ -3,30 +3,38 @@
 #include <algorithm>
 #include <initializer_list>
 #include <list>
-#include <map>
+#include <unordered_map>
 #include <vector>
 
 #include "PatternList.h"
 
-template <typename T = int>
-struct Transaction {
-  std::vector<T> items;
-  size_t trId;
-
-  template <typename C>
-  Transaction(const C &elements, size_t trId = 0)
-      : items(elements.begin(), elements.end()), trId(trId) {}
-
-  Transaction(size_t trId = 0) : trId(trId) {}
-
-  // Copy constructor
-  Transaction(const Transaction<T> &other)
-      : items(other.items), trId(other.trId) {}
-
-  bool includes(const T &val) const {
-    return std::find(items.cbegin(), items.cend(), val) != items.cend();
+template <typename TK, typename TV>
+std::vector<TK> extractKeys(const std::unordered_map<TK, TV> &input_map) {
+  std::vector<TK> retval;
+  for (auto const &element : input_map) {
+    retval.push_back(element.first);
   }
-};
+  return retval;
+}
+
+template <typename T = int>
+using Transaction = std::vector<T>;
+
+template <typename T = int>
+inline bool trIncludeItem(const Transaction<T> &items, const T &val) {
+  if (items.empty()) {
+    return false;
+  }
+
+  // Supposing an ordered vector
+  return std::binary_search(items.cbegin(), items.cend(), val);
+
+  // When using vector
+  // return std::find(items.cbegin(), items.cend(), val) != items.cend();
+
+  // When using set
+  // return items.count(val) != 0;
+}
 
 template <typename T = int>
 struct TransactionList {
@@ -44,55 +52,58 @@ struct TransactionList {
     addTransaction(Transaction<T>(elements));
   }
 
-  // Also sets trId
-  void addTransaction(const Transaction<T> &transaction) {
+  template <typename C>
+  void addTransaction(const C &elements) {
+    addTransaction(Transaction<T>(elements.begin(), elements.end()));
+  }
+
+  void addTransaction(Transaction<T> transaction) {
+    std::stable_sort(transaction.begin(), transaction.end());
     transactions.push_back(transaction);
-    transactions[transactions.size() - 1].trId = transactions.size() - 1;
-    elCount += transaction.items.size();
+    elCount += transaction.size();
+  }
+
+  void addTransactionSorted(const Transaction<T> &transaction) {
+    transactions.push_back(transaction);
+    elCount += transaction.size();
   }
 
   inline size_t size() const { return transactions.size(); }
 
   // Removes a pattern footprint from transactions (for residual dataset)
   void removePattern(const Pattern<T> &pattern) {
-    for (size_t i = 0; i < transactions.size(); i++) {
-      // if is in pattern transactions
-      if (pattern.hasTransaction(transactions[i].trId) > 0) {
-        std::list<T> resultRow;
+    for (auto &&trId : pattern.transactionIds) {
+      std::list<T> resultRow;
 
-        for (const auto &trItem : transactions[i].items) {
-          // if is not in pattern items we keep it
-          if (pattern.hasItem(trItem) == 0) {
-            resultRow.push_back(trItem);
-          }
+      for (const auto &trItem : transactions[trId]) {
+        // if is not in pattern items we keep it
+        if (pattern.hasItem(trItem) == 0) {
+          resultRow.push_back(trItem);
         }
-
-        const int diff = transactions[i].items.size() - resultRow.size();
-        transactions[i].items =
-            std::vector<T>(resultRow.begin(), resultRow.end());
-        elCount -= diff;
       }
+
+      const int diff = transactions[trId].size() - resultRow.size();
+      transactions[trId] = Transaction<T>(resultRow.begin(), resultRow.end());
+      elCount -= diff;
     }
   }
 
+  // Returns the number of elements outside the given pattern
   size_t tryRemovePattern(const Pattern<T> &pattern) const {
     size_t count = elCount;
 
-    for (size_t i = 0; i < transactions.size(); i++) {
-      // if is in pattern transactions
-      if (pattern.hasTransaction(transactions[i].trId) > 0) {
-        size_t found = 0;
+    for (auto &&trId : pattern.transactionIds) {
+      size_t found = 0;
 
-        for (const auto &trItem : transactions[i].items) {
-          // if is not in pattern items we keep it
-          if (pattern.hasItem(trItem) == 0) {
-            found++;
-          }
+      for (const auto &trItem : transactions[trId]) {
+        // if is not in pattern items we keep it
+        if (pattern.hasItem(trItem) == 0) {
+          found++;
         }
-
-        const int diff = transactions[i].items.size() - found;
-        count -= diff;
       }
+
+      const int diff = transactions[trId].size() - found;
+      count -= diff;
     }
 
     return count;
@@ -104,7 +115,7 @@ struct TransactionList {
 
     for (auto &&trId : pattern.transactionIds) {
       for (auto &&itemId : pattern.itemIds) {
-        if (!transactions[trId].includes(itemId)) {
+        if (!trIncludeItem(transactions[trId], itemId)) {
           falsePositives++;
         }
       }
@@ -114,11 +125,11 @@ struct TransactionList {
   }
 
   // Build a frequency map for every item
-  std::map<T, size_t> getItemsFreq() const {
-    std::map<int, size_t> itemsFreqMap;
+  std::unordered_map<T, size_t> getItemsFreq() const {
+    std::unordered_map<T, size_t> itemsFreqMap;
     for (size_t trId = 0; trId < transactions.size(); trId++) {
-      for (auto &&i : transactions[trId].items) {
-        if (itemsFreqMap.find(i) == itemsFreqMap.end()) {
+      for (auto &&i : transactions[trId]) {
+        if (itemsFreqMap.count(i) == 0) {
           itemsFreqMap[i] = 1;
         } else {
           itemsFreqMap[i]++;
@@ -130,31 +141,15 @@ struct TransactionList {
   }
 
   // By frequency sorting strategy for greedy method
-  void sortByFreq() {
+  std::vector<T> itemsByFreq() const {
     const auto itemsFreqMap = getItemsFreq();
+    auto keys = extractKeys(itemsFreqMap);
 
-    // Sort every transaction items
-    for (size_t i = 0; i < transactions.size(); i++) {
-      std::vector<T> &items = transactions[i].items;
-      std::stable_sort(items.begin(), items.end(),
-                       [&itemsFreqMap](const T &a, const T &b) {
-                         return itemsFreqMap.at(a) > itemsFreqMap.at(b);
-                       });
-    }
+    std::stable_sort(keys.begin(), keys.end(),
+                     [&itemsFreqMap](const T &a, const T &b) {
+                       return itemsFreqMap.at(a) > itemsFreqMap.at(b);
+                     });
 
-    // Sort transactions
-    std::stable_sort(
-        transactions.begin(), transactions.end(),
-        [&itemsFreqMap](const Transaction<T> &a, const Transaction<T> &b) {
-          size_t aFreq = 0;
-          for (auto &&i : a.items) {
-            aFreq += itemsFreqMap.at(i);
-          }
-          size_t bFreq = 0;
-          for (auto &&i : b.items) {
-            bFreq += itemsFreqMap.at(i);
-          }
-          return aFreq > bFreq;
-        });
+    return keys;
   }
 };

@@ -21,10 +21,12 @@ TransactionList<int> readIntTransactions(const std::string &path) {
   while (std::getline(infile, line)) {
     std::stringstream ss(line);
     int val;
-    std::set<int> items;
+    std::vector<int> items;
+    // std::set<int> items;
 
     while (ss >> val) {
-      items.insert(val);
+      items.push_back(val);
+      // items.insert(val);
       if (ss.peek() == ' ') ss.ignore();
     }
 
@@ -81,11 +83,11 @@ int main(int argc, char *argv[]) {
 
   auto dataset = readIntTransactions(args::get(filename));
 
-  auto patterns =
+  auto state =
       panda(kPatterns, dataset, maxRowNoise, maxColumnNoise, complexityWeight);
 
   std::cout << "Patterns:" << std::endl;
-  for (auto &&p : patterns.patterns) {
+  for (auto &&p : state.patterns.patterns) {
     for (auto &&i : p.itemIds) {
       std::cout << i << " ";
     }
@@ -97,6 +99,15 @@ int main(int argc, char *argv[]) {
     std::cout << " (" << p.transactionIds.size() << ")";
     std::cout << std::endl;
   }
+
+  std::cout << "Total cost: " << state.currentCost(complexityWeight)
+            << std::endl;
+  std::cout << "Total noise: " << state.currentNoise() << std::endl;
+  std::cout << "Total false positives: " << state.currentFalsePositives
+            << std::endl;
+  std::cout << "Total false negatives: " << state.residualDataset.elCount
+            << std::endl;
+  std::cout << "Total complexity: " << state.patterns.complexity << std::endl;
 
   return 0;
 }
