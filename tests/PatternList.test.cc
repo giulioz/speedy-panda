@@ -19,6 +19,37 @@ TEST_CASE("Uncovered") {
   CHECK(compareArr(uncovered, {1, 2, 3, 4, 5, 7, 9}));
 }
 
+TEST_CASE("COVERS") {
+  PatternList patterns;
+  CHECK(!patterns.covers(0, 0));
+
+  Pattern p1;
+  patterns.addPattern(p1);
+  CHECK(!patterns.covers(0, 0));
+
+  Pattern p2;
+  p2.addItem(5);
+  p2.addItem(5);
+  p2.addItem(3);
+  p2.addTransaction(5);
+  p2.addTransaction(5);
+  p2.addTransaction(3);
+  p2.addTransaction(8);
+  patterns.addPattern(p2);
+  CHECK(patterns.covers(5, 3));
+  CHECK(!patterns.covers(5, 2));
+  CHECK(!patterns.covers(6, 5));
+  CHECK(!patterns.covers(6, 8));
+
+  Pattern p3;
+  p3.addItem(1);
+  p3.addItem(2);
+  p3.addTransaction(3);
+  patterns.addPattern(p3);
+  CHECK(patterns.covers(5, 3));
+  CHECK(patterns.covers(3, 2));
+}
+
 TEST_CASE("Complexity Calculation") {
   PatternList patterns;
   CHECK(patterns.complexity == 0);

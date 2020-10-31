@@ -88,7 +88,9 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Patterns:" << std::endl;
   for (auto &&p : state.patterns.patterns) {
-    for (auto &&i : p.itemIds) {
+    std::vector<int> items(p.itemIds.begin(), p.itemIds.end());
+    std::sort(items.begin(), items.end());
+    for (auto &&i : items) {
       std::cout << i << " ";
     }
     // std::cout << "(";

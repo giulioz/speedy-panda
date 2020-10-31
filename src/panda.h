@@ -116,7 +116,7 @@ Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
   Pattern<T> currentCore = core;
 
   size_t falsePositives = state.currentFalsePositives;
-  size_t falseNegatives = state.residualDataset.elCount;
+  size_t falseNegatives = state.residualDataset.elCount - currentCore.getSize();
 
   float currentCost =
       costFunction(falsePositives, falseNegatives,
@@ -131,15 +131,15 @@ Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
     for (auto &&trId : uncoveredTransactions) {
       size_t falsePositivesCandidate = falsePositives;
       size_t falseNegativesCandidate = falseNegatives;
-
-      size_t foundItems = 0;
-      for (auto &&item : state.dataset.transactions[trId]) {
-        if (currentCore.hasItem(item)) {
-          foundItems++;
-          falseNegatives--;
+      for (auto &&item : currentCore.itemIds) {
+        bool covered = state.patterns.covers(trId, item);
+        bool on = trIncludeItem(state.dataset.transactions[trId], item);
+        if (!on) {
+          falsePositivesCandidate++;
+        } else if (!covered) {
+          falseNegativesCandidate--;
         }
       }
-      falsePositivesCandidate += currentCore.itemIds.size() - foundItems;
 
       float candidateCost = costFunction(
           falsePositivesCandidate, falseNegativesCandidate,
@@ -147,7 +147,6 @@ Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
           complexityWeight);
 
       if (candidateCost <= currentCost) {
-        // std::cout << "ADDED TRANSACTION" << std::endl;
         currentCore.addTransaction(trId);
         currentCost = candidateCost;
         falsePositives = falsePositivesCandidate;
@@ -165,11 +164,12 @@ Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
       size_t falseNegativesCandidate = falseNegatives;
 
       for (auto &&trId : currentCore.transactionIds) {
-        if (trIncludeItem(state.residualDataset.transactions[trId],
-                          extension)) {
-          falseNegativesCandidate--;
-        } else {
+        bool covered = state.patterns.covers(trId, extension);
+        bool on = trIncludeItem(state.dataset.transactions[trId], extension);
+        if (!on) {
           falsePositivesCandidate++;
+        } else if (!covered) {
+          falseNegativesCandidate--;
         }
       }
 
@@ -178,7 +178,6 @@ Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
           state.patterns.complexity + currentCore.getComplexity() + 1,
           complexityWeight);
       if (candidateCost <= currentCost) {
-        // std::cout << "ADDED ITEM" << std::endl;
         currentCore.addItem(extension);
         currentCost = candidateCost;
         falsePositives = falsePositivesCandidate;

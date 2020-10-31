@@ -52,6 +52,10 @@ struct Pattern {
     return itemIds.size() + transactionIds.size();
   }
 
+  inline size_t getSize() const {
+    return itemIds.size() * transactionIds.size();
+  }
+
   inline void addItem(const T item) { itemIds.insert(item); }
   inline void addTransaction(const size_t transaction) {
     transactionIds.insert(transaction);
@@ -67,7 +71,11 @@ struct Pattern {
     return transactionIds.count(transaction) > 0;
   }
 
-  std::vector<size_t> transactionsUncovered(size_t nTransactions) const {
+  inline bool covers(const size_t trId, const T &item) const {
+    return hasTransaction(trId) && hasItem(item);
+  }
+
+  std::vector<size_t> transactionsUncovered(const size_t nTransactions) const {
     std::vector<size_t> uncovered(nTransactions - transactionIds.size());
     size_t k = 0;
     for (size_t i = 0; i < nTransactions; i++) {
@@ -98,5 +106,14 @@ struct PatternList {
   void addPattern(const Pattern<T> &pattern) {
     patterns.push_back(pattern);
     complexity += pattern.getComplexity();
+  }
+
+  bool covers(const size_t trId, const T &item) const {
+    for (auto &&pat : patterns) {
+      if (pat.covers(trId, item)) {
+        return true;
+      }
+    }
+    return false;
   }
 };
