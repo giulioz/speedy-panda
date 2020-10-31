@@ -83,11 +83,11 @@ int main(int argc, char *argv[]) {
 
   auto dataset = readIntTransactions(args::get(filename));
 
-  auto state =
+  auto patterns =
       panda(kPatterns, dataset, maxRowNoise, maxColumnNoise, complexityWeight);
 
   std::cout << "Patterns:" << std::endl;
-  for (auto &&p : state.patterns.patterns) {
+  for (auto &&p : patterns.patterns) {
     std::vector<int> items(p.itemIds.begin(), p.itemIds.end());
     std::sort(items.begin(), items.end());
     for (auto &&i : items) {
@@ -102,14 +102,15 @@ int main(int argc, char *argv[]) {
     std::cout << std::endl;
   }
 
-  std::cout << "Total cost: " << state.currentCost(complexityWeight)
-            << std::endl;
-  std::cout << "Total noise: " << state.currentNoise() << std::endl;
-  std::cout << "Total false positives: " << state.currentFalsePositives
-            << std::endl;
-  std::cout << "Total false negatives: " << state.residualDataset.elCount
-            << std::endl;
-  std::cout << "Total complexity: " << state.patterns.complexity << std::endl;
+  // std::cout << "Total cost: " << state.currentCost(complexityWeight)
+  //           << std::endl;
+  // std::cout << "Total noise: " << state.currentNoise() << std::endl;
+  // std::cout << "Total false positives: " << state.currentFalsePositives
+  //           << std::endl;
+  // std::cout << "Total false negatives: " << state.residualDataset.elCount
+  //           << std::endl;
+  // std::cout << "Total complexity: " << state.patterns.complexity <<
+  // std::endl;
 
   return 0;
 }

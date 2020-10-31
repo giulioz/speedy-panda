@@ -62,8 +62,3 @@ add_executable(PatternList_test tests/PatternList.test.cc ${LIB_SOURCE_FILES} te
 add_dependencies(PatternList_test doctest)
 target_include_directories(PatternList_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(PatternList PatternList_test)
-
-add_executable(ResultState_test tests/ResultState.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
-add_dependencies(ResultState_test doctest)
-target_include_directories(ResultState_test PUBLIC ${DOCTEST_INCLUDE_DIR})
-add_test(ResultState ResultState_test)

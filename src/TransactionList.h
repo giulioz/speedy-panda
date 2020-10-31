@@ -22,9 +22,9 @@ using Transaction = std::vector<T>;
 
 template <typename T = int>
 inline bool trIncludeItem(const Transaction<T> &items, const T &val) {
-  if (items.empty()) {
-    return false;
-  }
+  // if (items.empty()) {
+  //   return false;
+  // }
 
   // Supposing an ordered vector
   return std::binary_search(items.cbegin(), items.cend(), val);

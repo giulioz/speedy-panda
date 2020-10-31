@@ -5,7 +5,7 @@
 #include <map>
 #include <queue>
 #include <set>
-#include <utility>
+#include <tuple>
 #include <vector>
 
 #include "PatternList.h"
@@ -44,7 +44,8 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
 
 inline float costFunction(size_t falsePositives, size_t falseNegatives,
                           size_t complexity, float complexityWeight) {
-  return complexityWeight * complexity + (falsePositives + falseNegatives);
+  return complexityWeight * (float)complexity +
+         (falsePositives + falseNegatives);
 }
 
 /*
@@ -52,31 +53,32 @@ inline float costFunction(size_t falsePositives, size_t falseNegatives,
  */
 
 template <typename T>
-std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state,
-                                              float complexityWeight) {
+std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
+    const PatternList<T> &patterns, const TransactionList<T> &residualDataset,
+    size_t currentFalsePositives, float complexityWeight) {
   std::queue<T> extensionList;
   Pattern<T> core;
 
-  if (state.residualDataset.size() == 0) {
-    return std::make_pair(core, extensionList);
+  size_t falseNegatives = residualDataset.elCount;
+
+  if (residualDataset.size() == 0) {
+    return {core, extensionList, falseNegatives};
   }
 
-  size_t falseNegatives = state.residualDataset.elCount;
-
-  const auto sorted = state.residualDataset.itemsByFreq();
+  const auto sorted = residualDataset.itemsByFreq();
   auto s1 = sorted[0];
   core.addItem(s1);
 
-  for (size_t i = 0; i < state.residualDataset.size(); i++) {
-    if (trIncludeItem(state.residualDataset.transactions[i], s1)) {
+  for (size_t i = 0; i < residualDataset.size(); i++) {
+    if (trIncludeItem(residualDataset.transactions[i], s1)) {
       core.addTransaction(i);
       falseNegatives--;
     }
   }
 
-  float currentCost = costFunction(
-      state.currentFalsePositives, falseNegatives,
-      state.patterns.complexity + core.getComplexity(), complexityWeight);
+  float currentCost = costFunction(currentFalsePositives, falseNegatives,
+                                   patterns.complexity + core.getComplexity(),
+                                   complexityWeight);
 
   for (size_t i = 1; i < sorted.size(); i++) {
     const auto sh = sorted[i];
@@ -85,7 +87,7 @@ std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state,
     Pattern<T> candidate(core.itemIds);
     candidate.addItem(sh);
     for (auto &&trId : core.transactionIds) {
-      if (trIncludeItem(state.residualDataset.transactions[trId], sh)) {
+      if (trIncludeItem(residualDataset.transactions[trId], sh)) {
         candidate.addTransaction(trId);
         falseNegativesCandidate--;
       } else {
@@ -93,10 +95,9 @@ std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state,
       }
     }
 
-    float candidateCost =
-        costFunction(state.currentFalsePositives, falseNegativesCandidate,
-                     state.patterns.complexity + candidate.getComplexity(),
-                     complexityWeight);
+    float candidateCost = costFunction(
+        currentFalsePositives, falseNegativesCandidate,
+        patterns.complexity + candidate.getComplexity(), complexityWeight);
     if (candidateCost <= currentCost) {
       core = std::move(candidate);
       currentCost = candidateCost;
@@ -106,34 +107,37 @@ std::pair<Pattern<T>, std::queue<T>> findCore(ResultState<T> &state,
     }
   }
 
-  return std::make_pair(core, extensionList);
+  return {core, extensionList, falseNegatives};
 }
 
 template <typename T>
-Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
-                      std::queue<T> &extensionList, float maxRowNoise,
-                      float maxColumnNoise, float complexityWeight) {
+std::tuple<Pattern<T>, size_t, size_t> extendCore(
+    const PatternList<T> &patterns, const TransactionList<T> &dataset,
+    const Pattern<T> &core, std::queue<T> &extensionList,
+    size_t currentFalseNegatives, size_t currentFalsePositives,
+    float maxRowNoise, float maxColumnNoise, float complexityWeight) {
   Pattern<T> currentCore = core;
 
-  size_t falsePositives = state.currentFalsePositives;
-  size_t falseNegatives = state.residualDataset.elCount - currentCore.getSize();
+  size_t falsePositives = currentFalsePositives;
+  size_t falseNegatives = currentFalseNegatives;
 
-  float currentCost =
-      costFunction(falsePositives, falseNegatives,
-                   state.patterns.complexity + currentCore.getComplexity(),
-                   complexityWeight);
+  float currentCost = costFunction(
+      falsePositives, falseNegatives,
+      patterns.complexity + currentCore.getComplexity(), complexityWeight);
 
   bool addedItem = true;
   while (addedItem) {
     const auto uncoveredTransactions =
-        currentCore.transactionsUncovered(state.dataset.size());
+        currentCore.transactionsUncovered(dataset.size());
 
     for (auto &&trId : uncoveredTransactions) {
       size_t falsePositivesCandidate = falsePositives;
       size_t falseNegativesCandidate = falseNegatives;
       for (auto &&item : currentCore.itemIds) {
-        bool covered = state.patterns.covers(trId, item);
-        bool on = trIncludeItem(state.dataset.transactions[trId], item);
+        bool covered = patterns.covers(trId, item);
+        // bool covered = !trIncludeItem(residualDataset.transactions[trId],
+        // item);
+        bool on = trIncludeItem(dataset.transactions[trId], item);
         if (!on) {
           falsePositivesCandidate++;
         } else if (!covered) {
@@ -141,10 +145,10 @@ Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
         }
       }
 
-      float candidateCost = costFunction(
-          falsePositivesCandidate, falseNegativesCandidate,
-          state.patterns.complexity + currentCore.getComplexity() + 1,
-          complexityWeight);
+      float candidateCost =
+          costFunction(falsePositivesCandidate, falseNegativesCandidate,
+                       patterns.complexity + currentCore.getComplexity() + 1,
+                       complexityWeight);
 
       if (candidateCost <= currentCost) {
         currentCore.addTransaction(trId);
@@ -164,8 +168,10 @@ Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
       size_t falseNegativesCandidate = falseNegatives;
 
       for (auto &&trId : currentCore.transactionIds) {
-        bool covered = state.patterns.covers(trId, extension);
-        bool on = trIncludeItem(state.dataset.transactions[trId], extension);
+        bool covered = patterns.covers(trId, extension);
+        // bool covered =
+        //     !trIncludeItem(residualDataset.transactions[trId], extension);
+        bool on = trIncludeItem(dataset.transactions[trId], extension);
         if (!on) {
           falsePositivesCandidate++;
         } else if (!covered) {
@@ -173,10 +179,10 @@ Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
         }
       }
 
-      float candidateCost = costFunction(
-          falsePositivesCandidate, falseNegativesCandidate,
-          state.patterns.complexity + currentCore.getComplexity() + 1,
-          complexityWeight);
+      float candidateCost =
+          costFunction(falsePositivesCandidate, falseNegativesCandidate,
+                       patterns.complexity + currentCore.getComplexity() + 1,
+                       complexityWeight);
       if (candidateCost <= currentCost) {
         currentCore.addItem(extension);
         currentCost = candidateCost;
@@ -189,33 +195,51 @@ Pattern<T> extendCore(ResultState<T> &state, const Pattern<T> &core,
     }
   }
 
-  return currentCore;
+  return {currentCore, falsePositives, falseNegatives};
 }
 
 template <typename T>
-ResultState<T> panda(int maxK, const TransactionList<T> &dataset,
+PatternList<T> panda(int maxK, const TransactionList<T> &dataset,
                      float maxRowNoise, float maxColumnNoise,
                      float complexityWeight) {
-  ResultState<T> state(dataset, PatternList<T>(maxK));
+  PatternList<T> patterns(maxK);
+  TransactionList<T> residualDataset = dataset;
+
+  size_t falsePositives = 0;
+  size_t falseNegatives = residualDataset.elCount;
+
+  float prevCost = costFunction(falsePositives, falseNegatives,
+                                patterns.complexity, complexityWeight);
 
   for (int i = 0; i < maxK; i++) {
-    auto [core, extensionList] = findCore(state, complexityWeight);
-    core = extendCore(state, core, extensionList, maxRowNoise, maxColumnNoise,
-                      complexityWeight);
+    auto [core, extensionList, resultFalseNegatives] =
+        findCore(patterns, residualDataset, falsePositives, complexityWeight);
+    falseNegatives = resultFalseNegatives;
 
-    if (state.currentCost(complexityWeight) <
-        state.tryAddPattern(core, complexityWeight)) {
+    auto [extendedCore, resultFalsePositives2, resultFalseNegatives2] =
+        extendCore(patterns, dataset, core, extensionList, falseNegatives,
+                   falsePositives, maxRowNoise, maxColumnNoise,
+                   complexityWeight);
+    falsePositives = resultFalsePositives2;
+    falseNegatives = resultFalseNegatives2;
+
+    float candidateCost = costFunction(falsePositives, falseNegatives,
+                                       patterns.complexity, complexityWeight);
+
+    if (prevCost < candidateCost) {
       // J cannot be improved any more
       break;
     }
 
-    state.addPattern(core);
+    patterns.addPattern(extendedCore);
+    residualDataset.removePattern(extendedCore);
+    prevCost = candidateCost;
 
-    if (state.residualDataset.elCount == 0) {
+    if (residualDataset.elCount == 0) {
       // No more data to explain
       break;
     }
   }
 
-  return state;
+  return patterns;
 }
