@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "PatternList.h"
-#include "ResultState.h"
 #include "TransactionList.h"
 
 /*
@@ -91,7 +90,7 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
         candidate.addTransaction(trId);
         falseNegativesCandidate--;
       } else {
-        falseNegativesCandidate += candidate.itemIds.size();
+        falseNegativesCandidate += core.itemIds.size();
       }
     }
 
