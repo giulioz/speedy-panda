@@ -299,4 +299,52 @@ TEST_CASE("extendCore") {
     CHECK(compareSet(extendedCore2.itemIds, {2, 3, 4}));
     CHECK(compareSet(extendedCore2.transactionIds, {0, 1, 2, 3, 4}));
   }
+  SUBCASE("Multiple 3") {
+    TransactionList dataset;
+    dataset.addTransaction({0, 1, 2});
+    dataset.addTransaction({0, 1, 2});
+    dataset.addTransaction({0, 1, 2, 3, 4, 5});
+    dataset.addTransaction({0, 1, 2, 3, 4, 5});
+    dataset.addTransaction({1, 2, 3, 4, 5});
+    dataset.addTransaction({1, 2, 3, 4, 5});
+    dataset.addTransaction({1, 2, 3, 4, 5, 6, 7, 8});
+    dataset.addTransaction({4, 5, 6, 7, 8});
+    PatternList<int> patterns;
+    auto [core, extensionList, resultFalseNegatives] =
+        findCore(patterns, dataset, 0, 0.5);
+    auto [extendedCore, resultFalsePositivesE, resultFalseNegativesE] =
+        extendCore(patterns, dataset, core, extensionList, resultFalseNegatives,
+                   0, 1.0, 1.0, 0.5);
+    CHECK(resultFalsePositivesE == 0);
+    CHECK(resultFalseNegativesE == 16);
+    CHECK(compareSet(extendedCore.itemIds, {1, 2, 3, 4, 5}));
+    CHECK(compareSet(extendedCore.transactionIds, {2, 3, 4, 5, 6}));
+    patterns.addPattern(extendedCore);
+    dataset.removePattern(extendedCore);
+
+    auto [core2, extensionList2, resultFalseNegatives2] =
+        findCore(patterns, dataset, resultFalsePositivesE, 0.5);
+    auto [extendedCore2, resultFalsePositivesE2, resultFalseNegativesE2] =
+        extendCore(patterns, dataset, core2, extensionList2,
+                   resultFalseNegatives2, resultFalsePositivesE, 1.0, 1.0, 0.5);
+    CHECK(resultFalsePositivesE2 == 0);
+    CHECK(resultFalseNegativesE2 == 8);
+    CHECK(compareSet(extendedCore2.itemIds, {0, 1, 2}));
+    CHECK(compareSet(extendedCore2.transactionIds, {0, 1, 2, 3}));
+    patterns.addPattern(extendedCore2);
+    dataset.removePattern(extendedCore2);
+
+    auto [core3, extensionList3, resultFalseNegatives3] =
+        findCore(patterns, dataset, resultFalsePositivesE2, 0.5);
+    auto [extendedCore3, resultFalsePositivesE3, resultFalseNegativesE3] =
+        extendCore(patterns, dataset, core3, extensionList3,
+                   resultFalseNegatives3, resultFalsePositivesE2, 1.0, 1.0,
+                   0.5);
+    CHECK(resultFalsePositivesE3 == 0);
+    CHECK(resultFalseNegativesE3 == 0);
+    CHECK(compareSet(extendedCore3.itemIds, {4, 5, 6, 7, 8}));
+    CHECK(compareSet(extendedCore3.transactionIds, {6, 7}));
+    patterns.addPattern(extendedCore3);
+    dataset.removePattern(extendedCore3);
+  }
 }

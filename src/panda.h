@@ -137,7 +137,7 @@ std::tuple<Pattern<T>, size_t, size_t> extendCore(
         // bool covered = !trIncludeItem(residualDataset.transactions[trId],
         // item);
         bool on = trIncludeItem(dataset.transactions[trId], item);
-        if (!on) {
+        if (!on && !covered) {
           falsePositivesCandidate++;
         } else if (!covered) {
           falseNegativesCandidate--;
@@ -171,7 +171,7 @@ std::tuple<Pattern<T>, size_t, size_t> extendCore(
         // bool covered =
         //     !trIncludeItem(residualDataset.transactions[trId], extension);
         bool on = trIncludeItem(dataset.transactions[trId], extension);
-        if (!on) {
+        if (!on && !covered) {
           falsePositivesCandidate++;
         } else if (!covered) {
           falseNegativesCandidate--;
