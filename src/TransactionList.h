@@ -77,7 +77,7 @@ struct TransactionList {
 
       for (const auto &trItem : transactions[trId]) {
         // if is not in pattern items we keep it
-        if (pattern.hasItem(trItem) == 0) {
+        if (!pattern.hasItem(trItem)) {
           resultRow.push_back(trItem);
         }
       }
@@ -86,42 +86,6 @@ struct TransactionList {
       transactions[trId] = Transaction<T>(resultRow.begin(), resultRow.end());
       elCount -= diff;
     }
-  }
-
-  // Returns the number of elements outside the given pattern
-  size_t tryRemovePattern(const Pattern<T> &pattern) const {
-    size_t count = elCount;
-
-    for (auto &&trId : pattern.transactionIds) {
-      size_t found = 0;
-
-      for (const auto &trItem : transactions[trId]) {
-        // if is not in pattern items we keep it
-        if (pattern.hasItem(trItem) == 0) {
-          found++;
-        }
-      }
-
-      const int diff = transactions[trId].size() - found;
-      count -= diff;
-    }
-
-    return count;
-  }
-
-  // Calculate the number of false positives given a pattern in the dataset
-  size_t calcPatternFalsePositives(const Pattern<T> &pattern) const {
-    size_t falsePositives = 0;
-
-    for (auto &&trId : pattern.transactionIds) {
-      for (auto &&itemId : pattern.itemIds) {
-        if (!trIncludeItem(transactions[trId], itemId)) {
-          falsePositives++;
-        }
-      }
-    }
-
-    return falsePositives;
   }
 
   // Build a frequency map for every item

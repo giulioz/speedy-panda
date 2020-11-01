@@ -36,11 +36,9 @@ TEST_CASE("Remove pattern") {
   Pattern p1;
   p1.itemIds = {0, 1, 2};
   p1.transactionIds = {0, 1, 2};
-  CHECK(dataset.calcPatternFalsePositives(p1) == 0);
   dataset.removePattern(p1);
   CHECK(dataset.size() == 4);
   CHECK(dataset.elCount == 3);
-  CHECK(dataset.calcPatternFalsePositives(p1) == 9);
   dataset.removePattern(p1);
   CHECK(dataset.size() == 4);
   CHECK(dataset.elCount == 3);
@@ -54,7 +52,6 @@ TEST_CASE("Remove pattern") {
   Pattern p2;
   p2.itemIds = {3, 4, 5, 6};
   p2.transactionIds = {3, 4, 5};
-  CHECK(dataset.calcPatternFalsePositives(p2) == 2);
   dataset.removePattern(p2);
   CHECK(dataset.size() == 6);
   CHECK(dataset.elCount == 0);
@@ -75,7 +72,6 @@ TEST_CASE("Remove pattern") {
     Pattern p3;
     p3.itemIds = {7, 8, 9, 10, 11};
     p3.transactionIds = {6, 7, 8, 9, 10};
-    CHECK(dataset.calcPatternFalsePositives(p3) == 0);
     dataset.removePattern(p3);
     CHECK(dataset.size() == 11);
     CHECK(dataset.elCount == 6);
@@ -90,7 +86,6 @@ TEST_CASE("Remove pattern") {
     Pattern p4;
     p4.itemIds = {11, 12, 13};
     p4.transactionIds = {8, 9, 10};
-    CHECK(dataset.calcPatternFalsePositives(p4) == 3);
     dataset.removePattern(p4);
     CHECK(dataset.elCount == 0);
     CHECK(dataset.transactions[8].size() == 0);
