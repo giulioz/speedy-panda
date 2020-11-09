@@ -68,10 +68,8 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
   std::queue<T> extensionList;
   Pattern<T> core;
 
-  size_t falseNegatives = residualDataset.elCount;
-
-  if (residualDataset.size() == 0) {
-    return {core, extensionList, falseNegatives};
+  if (residualDataset.elCount == 0) {
+    return {core, extensionList, 0};
   }
 
   BENCH_START(sortItems);
@@ -81,15 +79,24 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
   auto s1 = sorted[0];
   core.addItem(s1);
 
-  for (size_t i = 0; i < residualDataset.size(); i++) {
-    if (trIncludeItem(residualDataset.transactions[i], s1)) {
-      core.addTransaction(i);
-      falseNegatives--;
+#pragma omp parallel
+  {
+    std::vector<size_t> included;
+    included.reserve(included.size());
+#pragma omp for nowait
+    for (size_t i = 0; i < residualDataset.size(); i++) {
+      if (trIncludeItem(residualDataset.transactions.at(i), s1)) {
+        included.push_back(i);
+      }
     }
+
+#pragma omp critical
+    { core.addTransactions(included); }
   }
 
   BENCH_END(firstItem);
 
+  auto falseNegatives = residualDataset.elCount - core.getSize();
   float currentCost = costFunction(currentFalsePositives, falseNegatives,
                                    patterns.complexity + core.getComplexity(),
                                    complexityWeight);
@@ -97,19 +104,29 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
   BENCH_START(otherItems);
   for (size_t i = 1; i < sorted.size(); i++) {
     const auto sh = sorted[i];
-    size_t falseNegativesCandidate = falseNegatives;
-
     Pattern<T> candidate(core.itemIds);
     candidate.addItem(sh);
-    for (auto &&trId : core.transactionIds) {
-      if (trIncludeItem(residualDataset.transactions[trId], sh)) {
-        candidate.addTransaction(trId);
-        falseNegativesCandidate--;
-      } else {
-        falseNegativesCandidate += core.itemIds.size();
+
+    std::vector<size_t> copied(core.transactionIds.cbegin(),
+                               core.transactionIds.cend());
+
+#pragma omp parallel
+    {
+      std::vector<size_t> included;
+      included.reserve(included.size());
+#pragma omp for nowait
+      for (size_t i = 0; i < copied.size(); i++) {
+        if (trIncludeItem(residualDataset.transactions.at(copied[i]), sh)) {
+          included.push_back(copied[i]);
+        }
       }
+
+#pragma omp critical
+      { candidate.addTransactions(included); }
     }
 
+    const auto falseNegativesCandidate =
+        residualDataset.elCount - candidate.getSize();
     float candidateCost = costFunction(
         currentFalsePositives, falseNegativesCandidate,
         patterns.complexity + candidate.getComplexity(), complexityWeight);
@@ -148,34 +165,35 @@ std::tuple<Pattern<T>, size_t, size_t> extendCore(
   bool addedItem = true;
   while (addedItem) {
     start = std::chrono::system_clock::now();
-    const auto uncoveredTransactions =
-        currentCore.transactionsUncovered(dataset.size());
-
-    for (auto &&trId : uncoveredTransactions) {
-      size_t falsePositivesCandidate = falsePositives;
-      size_t falseNegativesCandidate = falseNegatives;
-      for (auto &&item : currentCore.itemIds) {
-        bool covered = patterns.covers(trId, item);
-        // bool covered = !trIncludeItem(residualDataset.transactions[trId],
-        // item);
-        bool on = trIncludeItem(dataset.transactions[trId], item);
-        if (!on && !covered) {
-          falsePositivesCandidate++;
-        } else if (!covered) {
-          falseNegativesCandidate--;
+    // #pragma omp parallel for
+    for (size_t trId = 0; trId < dataset.size(); trId++) {
+      if (!currentCore.hasTransaction(trId)) {
+        size_t falsePositivesCandidate = falsePositives;
+        size_t falseNegativesCandidate = falseNegatives;
+        for (auto &&item : currentCore.itemIds) {
+          bool covered = patterns.covers(trId, item);
+          bool on = trIncludeItem(dataset.transactions[trId], item);
+          if (!on && !covered) {
+            falsePositivesCandidate++;
+          } else if (!covered) {
+            falseNegativesCandidate--;
+          }
         }
-      }
 
-      float candidateCost =
-          costFunction(falsePositivesCandidate, falseNegativesCandidate,
-                       patterns.complexity + currentCore.getComplexity() + 1,
-                       complexityWeight);
+        float candidateCost =
+            costFunction(falsePositivesCandidate, falseNegativesCandidate,
+                         patterns.complexity + currentCore.getComplexity() + 1,
+                         complexityWeight);
 
-      if (candidateCost <= currentCost) {
-        currentCore.addTransaction(trId);
-        currentCost = candidateCost;
-        falsePositives = falsePositivesCandidate;
-        falseNegatives = falseNegativesCandidate;
+#pragma omp critical
+        {
+          if (candidateCost <= currentCost) {
+            currentCore.addTransaction(trId);
+            currentCost = candidateCost;
+            falsePositives = falsePositivesCandidate;
+            falseNegatives = falseNegativesCandidate;
+          }
+        }
       }
     }
     end = std::chrono::system_clock::now();
@@ -192,11 +210,14 @@ std::tuple<Pattern<T>, size_t, size_t> extendCore(
       size_t falsePositivesCandidate = falsePositives;
       size_t falseNegativesCandidate = falseNegatives;
 
-      for (auto &&trId : currentCore.transactionIds) {
-        bool covered = patterns.covers(trId, extension);
-        // bool covered =
-        //     !trIncludeItem(residualDataset.transactions[trId], extension);
-        bool on = trIncludeItem(dataset.transactions[trId], extension);
+      std::vector<size_t> copied(currentCore.transactionIds.cbegin(),
+                                 currentCore.transactionIds.cend());
+
+#pragma omp parallel for reduction(+:falsePositivesCandidate) reduction(-:falseNegativesCandidate)
+      for (size_t i = 0; i < copied.size(); i++) {
+        const auto trId = copied[i];
+        const bool covered = patterns.covers(trId, extension);
+        const bool on = trIncludeItem(dataset.transactions[trId], extension);
         if (!on && !covered) {
           falsePositivesCandidate++;
         } else if (!covered) {
