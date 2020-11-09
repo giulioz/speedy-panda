@@ -1,8 +1,10 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 project(speedy-panda)
 
 include(ExternalProject)
 find_package(Git REQUIRED)
+
+find_package(OpenMP REQUIRED)
 
 ExternalProject_Add(
     args
@@ -21,12 +23,16 @@ set(ARGS_INCLUDE_DIR ${source_dir} CACHE INTERNAL "Path to include folder for ar
 
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-Wall --pedantic -O3 -g -finline-functions -march=native")
+#set(CMAKE_CXX_FLAGS "-Wall --pedantic -O3 -g -finline-functions -march=native")
+#set(CMAKE_CXX_FLAGS "-Wall --pedantic -O3 -gdwarf -finline-functions -march=native -fopenmp")
+set(CMAKE_CXX_FLAGS "-Wall --pedantic -O3 -gdwarf -finline-functions -march=native -Xpreprocessor -fopenmp")
+#set(CMAKE_CXX_FLAGS "-Wall --pedantic -O3 -gdwarf -finline-functions -march=native -Xpreprocessor -fopenmp -fsanitize=address")
 #set(CMAKE_CXX_FLAGS "-Wall --pedantic -g -finline-functions -march=native")
 
 set(LIB_SOURCE_FILES)
 
 add_executable(speedy-panda src/main.cc ${LIB_SOURCE_FILES})
+target_link_libraries(speedy-panda PRIVATE OpenMP::OpenMP_CXX)
 add_dependencies(speedy-panda args)
 target_include_directories(speedy-panda PUBLIC ${ARGS_INCLUDE_DIR})
 
@@ -49,16 +55,19 @@ set(DOCTEST_INCLUDE_DIR ${source_dir}/doctest CACHE INTERNAL "Path to include fo
 enable_testing()
 
 add_executable(Panda_test tests/Panda.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
+target_link_libraries(Panda_test PRIVATE OpenMP::OpenMP_CXX)
 add_dependencies(Panda_test doctest)
 target_include_directories(Panda_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(Panda Panda_test)
 
 add_executable(TransactionList_test tests/TransactionList.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
+target_link_libraries(TransactionList_test PRIVATE OpenMP::OpenMP_CXX)
 add_dependencies(TransactionList_test doctest)
 target_include_directories(TransactionList_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(TransactionList TransactionList_test)
 
 add_executable(PatternList_test tests/PatternList.test.cc ${LIB_SOURCE_FILES} tests/doctest.cc)
+target_link_libraries(PatternList_test PRIVATE OpenMP::OpenMP_CXX)
 add_dependencies(PatternList_test doctest)
 target_include_directories(PatternList_test PUBLIC ${DOCTEST_INCLUDE_DIR})
 add_test(PatternList PatternList_test)
