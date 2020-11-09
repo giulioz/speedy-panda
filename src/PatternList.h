@@ -61,9 +61,9 @@ struct Pattern {
     transactionIds.insert(transaction);
   }
 
-  inline void removeItem(const T item) { itemIds.erase(item); }
-  inline void removeTransaction(const size_t transaction) {
-    transactionIds.erase(transaction);
+  template <typename E>
+  void addTransactions(const E &transactions) {
+    transactionIds.insert(transactions.cbegin(), transactions.cend());
   }
 
   inline bool hasItem(const T item) const { return itemIds.count(item) > 0; }
