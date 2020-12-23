@@ -82,7 +82,7 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
 #pragma omp parallel
   {
     std::vector<size_t> included;
-    included.reserve(included.size());
+    included.reserve(residualDataset.size());
 #pragma omp for nowait
     for (size_t i = 0; i < residualDataset.size(); i++) {
       if (trIncludeItem(residualDataset.transactions.at(i), s1)) {
@@ -113,7 +113,7 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
 #pragma omp parallel
     {
       std::vector<size_t> included;
-      included.reserve(included.size());
+      included.reserve(copied.size());
 #pragma omp for nowait
       for (size_t i = 0; i < copied.size(); i++) {
         if (trIncludeItem(residualDataset.transactions.at(copied[i]), sh)) {
