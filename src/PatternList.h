@@ -1,22 +1,22 @@
 #pragma once
 
 #include <initializer_list>
-#include <unordered_set>
+#include <set>
 #include <vector>
 
 template <typename T = int>
 struct Pattern {
-  std::unordered_set<T> itemIds;
-  std::unordered_set<size_t> transactionIds;
+  std::set<T> itemIds;
+  std::set<size_t> transactionIds;
 
   // Empty constructor
   Pattern() {}
 
-  Pattern(const std::unordered_set<T> &itemIds)
+  Pattern(const std::set<T> &itemIds)
       : itemIds(itemIds.begin(), itemIds.end()) {}
 
-  Pattern(const std::unordered_set<T> &itemIds,
-          const std::unordered_set<size_t> &transactionIds)
+  Pattern(const std::set<T> &itemIds,
+          const std::set<size_t> &transactionIds)
       : itemIds(itemIds.begin(), itemIds.end()),
         transactionIds(transactionIds.begin(), transactionIds.end()) {}
 
@@ -59,6 +59,10 @@ struct Pattern {
   inline void addItem(const T item) { itemIds.insert(item); }
   inline void addTransaction(const size_t transaction) {
     transactionIds.insert(transaction);
+  }
+  inline void removeItem(const T item) { itemIds.erase(item); }
+  inline void removeTransaction(const size_t transaction) {
+    transactionIds.erase(transaction);
   }
 
   template <typename E>
