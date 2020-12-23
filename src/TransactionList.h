@@ -3,14 +3,14 @@
 #include <algorithm>
 #include <initializer_list>
 #include <list>
-#include <map>
+#include <unordered_map>
 #include <set>
 #include <vector>
 
 #include "PatternList.h"
 
 template <typename TK, typename TV>
-std::vector<TK> extractKeys(const std::map<TK, TV> &input_map) {
+std::vector<TK> extractKeys(const std::unordered_map<TK, TV> &input_map) {
   std::vector<TK> retval;
   for (auto const &element : input_map) {
     retval.push_back(element.first);
@@ -76,8 +76,8 @@ struct TransactionList {
   }
 
   // Build a frequency map for every item
-  std::map<T, size_t> getItemsFreq() const {
-    std::map<T, size_t> itemsFreqMap;
+  std::unordered_map<T, size_t> getItemsFreq() const {
+    std::unordered_map<T, size_t> itemsFreqMap;
     for (size_t trId = 0; trId < transactions.size(); trId++) {
       for (auto &&i : transactions[trId]) {
         if (itemsFreqMap.count(i) == 0) {

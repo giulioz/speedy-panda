@@ -1,22 +1,22 @@
 #pragma once
 
 #include <initializer_list>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 template <typename T = int>
 struct Pattern {
-  std::set<T> itemIds;
-  std::set<size_t> transactionIds;
+  std::unordered_set<T> itemIds;
+  std::unordered_set<size_t> transactionIds;
 
   // Empty constructor
   Pattern() {}
 
-  Pattern(const std::set<T> &itemIds)
+  Pattern(const std::unordered_set<T> &itemIds)
       : itemIds(itemIds.begin(), itemIds.end()) {}
 
-  Pattern(const std::set<T> &itemIds,
-          const std::set<size_t> &transactionIds)
+  Pattern(const std::unordered_set<T> &itemIds,
+          const std::unordered_set<size_t> &transactionIds)
       : itemIds(itemIds.begin(), itemIds.end()),
         transactionIds(transactionIds.begin(), transactionIds.end()) {}
 
