@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <initializer_list>
 #include <list>
+#include <set>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "PatternList.h"
@@ -19,7 +19,7 @@ std::vector<TK> extractKeys(const std::unordered_map<TK, TV> &input_map) {
 }
 
 template <typename T = int>
-using Transaction = std::unordered_set<T>;
+using Transaction = std::vector<T>;
 
 template <typename T = int>
 inline bool trIncludeItem(const Transaction<T> &items, const T &val) {
@@ -28,13 +28,13 @@ inline bool trIncludeItem(const Transaction<T> &items, const T &val) {
   // }
 
   // Supposing an ordered vector
-  // return std::binary_search(items.cbegin(), items.cend(), val);
+  return std::binary_search(items.cbegin(), items.cend(), val);
 
   // When using vector
   // return std::find(items.cbegin(), items.cend(), val) != items.cend();
 
   // When using set
-  return items.count(val) != 0;
+  // return items.count(val) != 0;
 }
 
 template <typename T = int>
@@ -58,6 +58,11 @@ struct TransactionList {
   }
 
   void addTransaction(Transaction<T> transaction) {
+    std::stable_sort(transaction.begin(), transaction.end());
+    transactions.push_back(transaction);
+  }
+
+  void addTransactionSorted(const Transaction<T> &transaction) {
     transactions.push_back(transaction);
   }
 
@@ -66,12 +71,16 @@ struct TransactionList {
   // Removes a pattern footprint from transactions (for residual dataset)
   void removePattern(const Pattern<T> &pattern) {
     for (auto &&trId : pattern.transactionIds) {
-      const auto items = transactions[trId];
-      for (const auto &trItem : items) {
-        if (pattern.hasItem(trItem)) {
-          transactions[trId].erase(trItem);
+      std::list<T> resultRow;
+
+      for (const auto &trItem : transactions[trId]) {
+        // if is not in pattern items we keep it
+        if (!pattern.hasItem(trItem)) {
+          resultRow.push_back(trItem);
         }
       }
+
+      transactions[trId] = Transaction<T>(resultRow.begin(), resultRow.end());
     }
   }
 
