@@ -4,7 +4,7 @@
 #include <initializer_list>
 #include <list>
 #include <unordered_map>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 #include "PatternList.h"
@@ -19,7 +19,7 @@ std::vector<TK> extractKeys(const std::unordered_map<TK, TV> &input_map) {
 }
 
 template <typename T = int>
-using Transaction = std::set<T>;
+using Transaction = std::unordered_set<T>;
 
 template <typename T = int>
 inline bool trIncludeItem(const Transaction<T> &items, const T &val) {
