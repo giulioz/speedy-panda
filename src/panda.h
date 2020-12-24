@@ -79,11 +79,18 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
   BENCH_START(firstItem);
   auto s1 = sorted[0];
   core.addItem(s1);
+
+  std::vector<size_t> included;
+  included.reserve(residualDataset.size());
   for (size_t i = 0; i < residualDataset.size(); i++) {
     if (trIncludeItem(residualDataset.transactions.at(i), s1)) {
-      core.addTransaction(i);
+      included.push_back(i);
     }
   }
+
+#pragma omp critical
+  core.addTransactions(included);
+
   BENCH_END(firstItem);
 
   auto falseNegatives = residualDataset.elCount - core.getSize();
@@ -94,22 +101,26 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
   BENCH_START(otherItems);
   for (size_t i = 1; i < sorted.size(); i++) {
     const auto sh = sorted[i];
-    Pattern<T> candidate = core;
+    Pattern<T> candidate(core.itemIds);
     candidate.addItem(sh);
+
+    std::vector<size_t> included;
+    included.reserve(core.transactionIds.size());
     for (const auto &trId : core.transactionIds) {
-      if (!trIncludeItem(residualDataset.transactions.at(trId), sh)) {
-        candidate.removeTransaction(trId);
+      if (trIncludeItem(residualDataset.transactions.at(trId), sh)) {
+        included.push_back(trId);
       }
     }
+
+    candidate.addTransactions(included);
 
     const auto falseNegativesCandidate =
         residualDataset.elCount - candidate.getSize();
     float candidateCost = costFunction(
         currentFalsePositives, falseNegativesCandidate,
         patterns.complexity + candidate.getComplexity(), complexityWeight);
-
     if (candidateCost <= currentCost) {
-      core = candidate;
+      core = std::move(candidate);
       currentCost = candidateCost;
       falseNegatives = falseNegativesCandidate;
     } else {
