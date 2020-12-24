@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <initializer_list>
 #include <list>
-#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -40,13 +39,14 @@ inline bool trIncludeItem(const Transaction<T> &items, const T &val) {
 template <typename T = int>
 struct TransactionList {
   std::vector<Transaction<T>> transactions;
+  size_t elCount = 0;
 
   // Empty constructor
   TransactionList() {}
 
   // Copy constructor
   TransactionList(const TransactionList<T> &other)
-      : transactions(other.transactions) {}
+      : transactions(other.transactions), elCount(other.elCount) {}
 
   void addTransaction(const std::initializer_list<T> &elements) {
     addTransaction(Transaction<T>(elements));
@@ -60,10 +60,12 @@ struct TransactionList {
   void addTransaction(Transaction<T> transaction) {
     std::stable_sort(transaction.begin(), transaction.end());
     transactions.push_back(transaction);
+    elCount += transaction.size();
   }
 
   void addTransactionSorted(const Transaction<T> &transaction) {
     transactions.push_back(transaction);
+    elCount += transaction.size();
   }
 
   inline size_t size() const { return transactions.size(); }
@@ -80,7 +82,9 @@ struct TransactionList {
         }
       }
 
+      const int diff = transactions[trId].size() - resultRow.size();
       transactions[trId] = Transaction<T>(resultRow.begin(), resultRow.end());
+      elCount -= diff;
     }
   }
 

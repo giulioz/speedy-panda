@@ -51,35 +51,9 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
   return ok;
 }
 
-template <typename T>
-inline float costFunction(const TransactionList<T> &dataset,
-                          const PatternList<T> &patterns,
-                          float complexityWeight) {
-  size_t falsePositives = 0;
-  for (const auto &pattern : patterns.patterns) {
-    for (const auto &trId : pattern.transactionIds) {
-      for (const auto &trItem : pattern.itemIds) {
-        if (!trIncludeItem(dataset.transactions[trId], trItem)) {
-          falsePositives++;
-        }
-      }
-    }
-  }
-
-  size_t falseNegatives = 0;
-  for (size_t trId = 0; trId < dataset.size(); trId++) {
-    for (const auto &trItem : dataset.transactions[trId]) {
-      bool covered = false;
-      for (const auto &pattern : patterns.patterns) {
-        if (pattern.hasItem(trItem) && pattern.hasTransaction(trId)) {
-          covered = true;
-        }
-      }
-      falseNegatives += covered ? 0 : 1;
-    }
-  }
-
-  return complexityWeight * (float)patterns.complexity +
+inline float costFunction(size_t falsePositives, size_t falseNegatives,
+                          size_t complexity, float complexityWeight) {
+  return complexityWeight * (float)complexity +
          (falsePositives + falseNegatives);
 }
 
@@ -88,11 +62,15 @@ inline float costFunction(const TransactionList<T> &dataset,
  */
 
 template <typename T>
-std::tuple<Pattern<T>, std::queue<T>> findCore(
-    const PatternList<T> &patterns, const TransactionList<T> &dataset,
-    const TransactionList<T> &residualDataset, float complexityWeight) {
+std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
+    const PatternList<T> &patterns, const TransactionList<T> &residualDataset,
+    size_t currentFalsePositives, float complexityWeight) {
   std::queue<T> extensionList;
   Pattern<T> core;
+
+  if (residualDataset.elCount == 0) {
+    return {core, extensionList, 0};
+  }
 
   BENCH_START(sortItems);
   const auto sorted = residualDataset.itemsByFreq();
@@ -108,6 +86,11 @@ std::tuple<Pattern<T>, std::queue<T>> findCore(
   }
   BENCH_END(firstItem);
 
+  auto falseNegatives = residualDataset.elCount - core.getSize();
+  float currentCost = costFunction(currentFalsePositives, falseNegatives,
+                                   patterns.complexity + core.getComplexity(),
+                                   complexityWeight);
+
   BENCH_START(otherItems);
   for (size_t i = 1; i < sorted.size(); i++) {
     const auto sh = sorted[i];
@@ -119,32 +102,39 @@ std::tuple<Pattern<T>, std::queue<T>> findCore(
       }
     }
 
-    PatternList<T> withCore = patterns;
-    withCore.addPattern(core);
-    const float coreCost = costFunction(dataset, withCore, complexityWeight);
+    const auto falseNegativesCandidate =
+        residualDataset.elCount - candidate.getSize();
+    float candidateCost = costFunction(
+        currentFalsePositives, falseNegativesCandidate,
+        patterns.complexity + candidate.getComplexity(), complexityWeight);
 
-    PatternList<T> withCandidate = patterns;
-    withCandidate.addPattern(candidate);
-    const float candidateCost =
-        costFunction(dataset, withCandidate, complexityWeight);
-
-    if (candidateCost <= coreCost) {
+    if (candidateCost <= currentCost) {
       core = candidate;
+      currentCost = candidateCost;
+      falseNegatives = falseNegativesCandidate;
     } else {
       extensionList.push(sh);
     }
   }
   BENCH_END(otherItems);
 
-  return {core, extensionList};
+  return {core, extensionList, falseNegatives};
 }
 
 template <typename T>
-Pattern<T> extendCore(const PatternList<T> &patterns,
-                      const TransactionList<T> &dataset, const Pattern<T> &core,
-                      std::queue<T> &extensionList, float maxRowNoise,
-                      float maxColumnNoise, float complexityWeight) {
+std::tuple<Pattern<T>, size_t, size_t> extendCore(
+    const PatternList<T> &patterns, const TransactionList<T> &dataset,
+    const Pattern<T> &core, std::queue<T> &extensionList,
+    size_t currentFalseNegatives, size_t currentFalsePositives,
+    float maxRowNoise, float maxColumnNoise, float complexityWeight) {
   Pattern<T> currentCore = core;
+
+  size_t falsePositives = currentFalsePositives;
+  size_t falseNegatives = currentFalseNegatives;
+
+  float currentCost = costFunction(
+      falsePositives, falseNegatives,
+      patterns.complexity + currentCore.getComplexity(), complexityWeight);
 
   size_t timeA = 0;
   size_t timeB = 0;
@@ -155,21 +145,28 @@ Pattern<T> extendCore(const PatternList<T> &patterns,
     start = std::chrono::system_clock::now();
     for (size_t trId = 0; trId < dataset.size(); trId++) {
       if (!currentCore.hasTransaction(trId)) {
-        Pattern<T> candidate = currentCore;
-        candidate.addTransaction(trId);
+        size_t falsePositivesCandidate = falsePositives;
+        size_t falseNegativesCandidate = falseNegatives;
+        for (auto &&item : currentCore.itemIds) {
+          bool covered = patterns.covers(trId, item);
+          bool on = trIncludeItem(dataset.transactions[trId], item);
+          if (!on && !covered) {
+            falsePositivesCandidate++;
+          } else if (!covered) {
+            falseNegativesCandidate--;
+          }
+        }
 
-        PatternList<T> withCore = patterns;
-        withCore.addPattern(core);
-        const float coreCost =
-            costFunction(dataset, withCore, complexityWeight);
+        float candidateCost =
+            costFunction(falsePositivesCandidate, falseNegativesCandidate,
+                         patterns.complexity + currentCore.getComplexity() + 1,
+                         complexityWeight);
 
-        PatternList<T> withCandidate = patterns;
-        withCandidate.addPattern(candidate);
-        const float candidateCost =
-            costFunction(dataset, withCandidate, complexityWeight);
-
-        if (candidateCost <= coreCost) {
-          currentCore = candidate;
+        if (candidateCost <= currentCost) {
+          currentCore.addTransaction(trId);
+          currentCost = candidateCost;
+          falsePositives = falsePositivesCandidate;
+          falseNegatives = falseNegativesCandidate;
         }
       }
     }
@@ -184,20 +181,29 @@ Pattern<T> extendCore(const PatternList<T> &patterns,
       const auto extension = extensionList.front();
       extensionList.pop();
 
-      Pattern<T> candidate = currentCore;
-      candidate.addItem(extension);
+      size_t falsePositivesCandidate = falsePositives;
+      size_t falseNegativesCandidate = falseNegatives;
 
-      PatternList<T> withCore = patterns;
-      withCore.addPattern(core);
-      const float coreCost = costFunction(dataset, withCore, complexityWeight);
+      for (const auto &trId : currentCore.transactionIds) {
+        const bool covered = patterns.covers(trId, extension);
+        const bool on = trIncludeItem(dataset.transactions[trId], extension);
+        if (!on && !covered) {
+          falsePositivesCandidate++;
+        } else if (!covered) {
+          falseNegativesCandidate--;
+        }
+      }
 
-      PatternList<T> withCandidate = patterns;
-      withCandidate.addPattern(candidate);
-      const float candidateCost =
-          costFunction(dataset, withCandidate, complexityWeight);
+      float candidateCost =
+          costFunction(falsePositivesCandidate, falseNegativesCandidate,
+                       patterns.complexity + currentCore.getComplexity() + 1,
+                       complexityWeight);
+      if (candidateCost <= currentCost) {
+        currentCore.addItem(extension);
+        currentCost = candidateCost;
+        falsePositives = falsePositivesCandidate;
+        falseNegatives = falseNegativesCandidate;
 
-      if (candidateCost <= coreCost) {
-        currentCore = candidate;
         addedItem = true;
         break;
       }
@@ -210,7 +216,7 @@ Pattern<T> extendCore(const PatternList<T> &patterns,
   std::cout << "timeA: " << timeA << std::endl;
   std::cout << "timeB: " << timeB << std::endl;
 
-  return currentCore;
+  return {currentCore, falsePositives, falseNegatives};
 }
 
 template <typename T>
@@ -220,42 +226,47 @@ PatternList<T> panda(int maxK, const TransactionList<T> &dataset,
   PatternList<T> patterns(maxK);
   TransactionList<T> residualDataset = dataset;
 
+  size_t falsePositives = 0;
+  size_t falseNegatives = residualDataset.elCount;
+
+  float prevCost = costFunction(falsePositives, falseNegatives,
+                                patterns.complexity, complexityWeight);
+
   size_t findCoreTime = 0;
   size_t extendCoreTime = 0;
   size_t removePatternTime = 0;
   std::chrono::system_clock::time_point start, end;
 
-  float prevCost = INFINITY;
-
   for (int i = 0; i < maxK; i++) {
     start = std::chrono::system_clock::now();
-    auto [core, extensionList] =
-        findCore(patterns, dataset, residualDataset, complexityWeight);
+    auto [core, extensionList, resultFalseNegatives] =
+        findCore(patterns, residualDataset, falsePositives, complexityWeight);
     end = std::chrono::system_clock::now();
     findCoreTime +=
         std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
             .count();
 
+    falseNegatives = resultFalseNegatives;
+
     start = std::chrono::system_clock::now();
-    auto extendedCore =
-        extendCore(patterns, dataset, core, extensionList, maxRowNoise,
-                   maxColumnNoise, complexityWeight);
+    auto [extendedCore, resultFalsePositives2, resultFalseNegatives2] =
+        extendCore(patterns, dataset, core, extensionList, falseNegatives,
+                   falsePositives, maxRowNoise, maxColumnNoise,
+                   complexityWeight);
     end = std::chrono::system_clock::now();
     extendCoreTime +=
         std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
             .count();
 
-    PatternList<T> withCandidate = patterns;
-    withCandidate.addPattern(extendedCore);
-    const float candidateCost =
-        costFunction(dataset, withCandidate, complexityWeight);
-
+    falsePositives = resultFalsePositives2;
+    falseNegatives = resultFalseNegatives2;
+    float candidateCost = costFunction(falsePositives, falseNegatives,
+                                       patterns.complexity, complexityWeight);
     if (prevCost < candidateCost) {
       // J cannot be improved any more
       break;
     }
 
-    prevCost = candidateCost;
     patterns.addPattern(extendedCore);
 
     start = std::chrono::system_clock::now();
@@ -266,6 +277,11 @@ PatternList<T> panda(int maxK, const TransactionList<T> &dataset,
             .count();
 
     prevCost = candidateCost;
+
+    if (residualDataset.elCount == 0) {
+      // No more data to explain
+      break;
+    }
   }
 
   std::cout << "findCoreTime: " << findCoreTime << std::endl;
