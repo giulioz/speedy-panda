@@ -72,11 +72,11 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
     return {core, extensionList, 0};
   }
 
-  BENCH_START(sortItems);
+  // BENCH_START(sortItems);
   const auto sorted = residualDataset.itemsByFreq();
-  BENCH_END(sortItems);
+  // BENCH_END(sortItems);
 
-  BENCH_START(firstItem);
+  // BENCH_START(firstItem);
   auto s1 = sorted[0];
   core.addItem(s1);
 
@@ -91,14 +91,14 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
 #pragma omp critical
   core.addTransactions(included);
 
-  BENCH_END(firstItem);
+  // BENCH_END(firstItem);
 
   auto falseNegatives = residualDataset.elCount - core.getSize();
   float currentCost = costFunction(currentFalsePositives, falseNegatives,
                                    patterns.complexity + core.getComplexity(),
                                    complexityWeight);
 
-  BENCH_START(otherItems);
+  // BENCH_START(otherItems);
   for (size_t i = 1; i < sorted.size(); i++) {
     const auto sh = sorted[i];
     Pattern<T> candidate(core.itemIds);
@@ -127,7 +127,7 @@ std::tuple<Pattern<T>, std::queue<T>, size_t> findCore(
       extensionList.push(sh);
     }
   }
-  BENCH_END(otherItems);
+  // BENCH_END(otherItems);
 
   return {core, extensionList, falseNegatives};
 }
