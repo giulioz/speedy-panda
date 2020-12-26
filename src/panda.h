@@ -165,12 +165,17 @@ std::tuple<Pattern<T>, size_t, size_t> extendCore(
   bool addedItem = true;
   while (addedItem) {
     start = std::chrono::system_clock::now();
-    // #pragma omp parallel for
     for (size_t trId = 0; trId < dataset.size(); trId++) {
       if (!currentCore.hasTransaction(trId)) {
         size_t falsePositivesCandidate = falsePositives;
         size_t falseNegativesCandidate = falseNegatives;
-        for (auto &&item : currentCore.itemIds) {
+
+        std::vector<T> copied(currentCore.itemIds.cbegin(),
+                                   currentCore.itemIds.cend());
+
+#pragma omp parallel for reduction(+:falsePositivesCandidate) reduction(-:falseNegativesCandidate)
+        for (size_t i = 0; i < copied.size(); i++) {
+          const auto item = copied[i];
           bool covered = patterns.covers(trId, item);
           bool on = trIncludeItem(dataset.transactions[trId], item);
           if (!on && !covered) {
@@ -185,14 +190,11 @@ std::tuple<Pattern<T>, size_t, size_t> extendCore(
                          patterns.complexity + currentCore.getComplexity() + 1,
                          complexityWeight);
 
-#pragma omp critical
-        {
-          if (candidateCost <= currentCost) {
-            currentCore.addTransaction(trId);
-            currentCost = candidateCost;
-            falsePositives = falsePositivesCandidate;
-            falseNegatives = falseNegativesCandidate;
-          }
+        if (candidateCost <= currentCost) {
+          currentCore.addTransaction(trId);
+          currentCost = candidateCost;
+          falsePositives = falsePositivesCandidate;
+          falseNegatives = falseNegativesCandidate;
         }
       }
     }
