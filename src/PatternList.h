@@ -74,18 +74,6 @@ struct Pattern {
   inline bool covers(const size_t trId, const T &item) const {
     return hasTransaction(trId) && hasItem(item);
   }
-
-  std::vector<size_t> transactionsUncovered(const size_t nTransactions) const {
-    std::vector<size_t> uncovered(nTransactions - transactionIds.size());
-    size_t k = 0;
-    for (size_t i = 0; i < nTransactions; i++) {
-      if (!hasTransaction(i)) {
-        uncovered[k] = i;
-        k++;
-      }
-    }
-    return uncovered;
-  }
 };
 
 template <typename T = int>
