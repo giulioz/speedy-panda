@@ -26,32 +26,59 @@
  */
 
 template <typename T>
+bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
+                 float maxRowNoise, float maxColumnNoise) {
+  bool ok = true;
+
+  if (maxColumnNoise != 1.0) {
+    const auto maxColumn = (1 - maxColumnNoise) * core.transactionIds.size();
+    for (auto &&j : core.itemIds) {
+      int columnSum = 0;
+      for (auto &&i : core.transactionIds) {
+        columnSum += trIncludeItem(dataset.transactions[i], j);
+      }
+      ok &= columnSum >= maxColumn;
+    }
+  }
+
+  if (maxRowNoise != 1.0) {
+    const auto maxRow = (1 - maxRowNoise) * core.itemIds.size();
+    for (auto &&i : core.transactionIds) {
+      int rowSum = 0;
+      for (auto &&j : core.itemIds) {
+        rowSum += trIncludeItem(dataset.transactions[i], j);
+      }
+      ok &= rowSum >= maxRow;
+    }
+  }
+
+  return ok;
+}
+
+template <typename T>
 bool notTooNoisyItem(const TransactionList<T> &dataset, const Pattern<T> &core,
                      float maxRowNoise, float maxColumnNoise, const T &item) {
   bool ok = true;
 
-  // Early exit condition
-  if (maxRowNoise == 1.0 && maxColumnNoise == 1.0) {
-    return true;
-  }
-
-  const auto maxColumn = (1 - maxColumnNoise) * core.transactionIds.size();
-  for (auto &&j : core.itemIds) {
+  if (maxColumnNoise != 1.0) {
+    const auto maxColumn = (1 - maxColumnNoise) * core.transactionIds.size();
     int columnSum = 0;
     for (auto &&i : core.transactionIds) {
-      columnSum += trIncludeItem(dataset.transactions[i], j);
+      columnSum += trIncludeItem(dataset.transactions[i], item);
     }
     ok &= columnSum >= maxColumn;
   }
 
-  const auto maxRow = (1 - maxRowNoise) * core.itemIds.size();
-  for (auto &&i : core.transactionIds) {
-    int rowSum = 0;
-    for (auto &&j : core.itemIds) {
-      rowSum += trIncludeItem(dataset.transactions[i], j);
+  if (maxRowNoise != 1.0) {
+    const auto maxRow = (1 - maxRowNoise) * core.itemIds.size();
+    for (auto &&i : core.transactionIds) {
+      int rowSum = 0;
+      for (auto &&j : core.itemIds) {
+        rowSum += trIncludeItem(dataset.transactions[i], j);
+      }
+      rowSum += trIncludeItem(dataset.transactions[i], item);
+      ok &= rowSum >= maxRow;
     }
-    rowSum += trIncludeItem(dataset.transactions[i], item);
-    ok &= rowSum >= maxRow;
   }
 
   return ok;
@@ -63,26 +90,23 @@ bool notTooNoisyTransaction(const TransactionList<T> &dataset,
                             float maxColumnNoise, size_t transaction) {
   bool ok = true;
 
-  // Early exit condition
-  if (maxRowNoise == 1.0 && maxColumnNoise == 1.0) {
-    return true;
-  }
-
-  const auto maxColumn = (1 - maxColumnNoise) * core.transactionIds.size();
-  for (auto &&j : core.itemIds) {
-    int columnSum = 0;
-    for (auto &&i : core.transactionIds) {
-      columnSum += trIncludeItem(dataset.transactions[i], j);
+  if (maxColumnNoise != 1.0) {
+    const auto maxColumn = (1 - maxColumnNoise) * core.transactionIds.size();
+    for (auto &&j : core.itemIds) {
+      int columnSum = 0;
+      for (auto &&i : core.transactionIds) {
+        columnSum += trIncludeItem(dataset.transactions[i], j);
+      }
+      columnSum += trIncludeItem(dataset.transactions[transaction], j);
+      ok &= columnSum >= maxColumn;
     }
-    columnSum += trIncludeItem(dataset.transactions[transaction], j);
-    ok &= columnSum >= maxColumn;
   }
 
-  const auto maxRow = (1 - maxRowNoise) * core.itemIds.size();
-  for (auto &&i : core.transactionIds) {
+  if (maxRowNoise != 1.0) {
+    const auto maxRow = (1 - maxRowNoise) * core.itemIds.size();
     int rowSum = 0;
     for (auto &&j : core.itemIds) {
-      rowSum += trIncludeItem(dataset.transactions[i], j);
+      rowSum += trIncludeItem(dataset.transactions[transaction], j);
     }
     ok &= rowSum >= maxRow;
   }
