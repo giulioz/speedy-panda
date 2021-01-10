@@ -2,35 +2,6 @@
 #include "common.h"
 #include "doctest.h"
 
-TEST_CASE("notTooNoisy") {
-  SUBCASE("Dense") {
-    TransactionList dataset;
-    dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1, 2});
-    Pattern pattern({0, 1, 2}, {0, 1});
-    CHECK(notTooNoisy(dataset, pattern, 1.0, 1.0));
-    CHECK(notTooNoisy(dataset, pattern, 0.001, 0.001));
-  }
-  SUBCASE("Sparse 1") {
-    TransactionList dataset;
-    dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1});
-    Pattern pattern({0, 1, 2}, {0, 1, 2});
-    CHECK(notTooNoisy(dataset, pattern, 1.0, 1.0));
-    CHECK(!notTooNoisy(dataset, pattern, 0.001, 1.0));
-  }
-  SUBCASE("Sparse 2") {
-    TransactionList dataset;
-    dataset.addTransaction({0, 1, 2});
-    dataset.addTransaction({0, 1});
-    dataset.addTransaction({3, 4, 5});
-    Pattern pattern({0, 1, 2}, {0, 1, 2});
-    CHECK(notTooNoisy(dataset, pattern, 1.0, 1.0));
-    CHECK(!notTooNoisy(dataset, pattern, 1.0, 0.001));
-  }
-}
-
 TEST_CASE("findCore") {
   SUBCASE("Dense") {
     TransactionList dataset;

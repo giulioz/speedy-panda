@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
   args::ValueFlag<float> complexityWeightParam(
       parser, "0.8", "Pattern complexity weight", {'w'});
   args::ValueFlag<float> maxRowNoiseParam(parser, "1.0", "Row tollerance ratio",
-                                          {'y'});
+                                          {'x'});
   args::ValueFlag<float> maxColumnNoiseParam(parser, "1.0",
                                              "Column tollerance ratio", {'y'});
   args::Positional<std::string> filename(parser, "filename",
