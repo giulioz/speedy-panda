@@ -30,7 +30,7 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
                  float maxRowNoise, float maxColumnNoise) {
   bool ok = true;
 
-  if (maxColumnNoise != 1.0) {
+  if (maxColumnNoise < 1.0) {
     const auto maxColumn = (1 - maxColumnNoise) * core.transactionIds.size();
     for (auto &&j : core.itemIds) {
       int columnSum = 0;
@@ -41,7 +41,7 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
     }
   }
 
-  if (maxRowNoise != 1.0) {
+  if (maxRowNoise < 1.0) {
     const auto maxRow = (1 - maxRowNoise) * core.itemIds.size();
     for (auto &&i : core.transactionIds) {
       int rowSum = 0;
@@ -57,10 +57,10 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
 
 template <typename T>
 bool notTooNoisyItem(const TransactionList<T> &dataset, const Pattern<T> &core,
-                     float maxRowNoise, float maxColumnNoise, const T &item) {
+                     float maxRowNoise, float maxColumnNoise, const T &item, int &prevColSum) {
   bool ok = true;
 
-  if (maxColumnNoise != 1.0) {
+  if (maxColumnNoise < 1.0) {
     const auto maxColumn = (1 - maxColumnNoise) * core.transactionIds.size();
     int columnSum = 0;
     for (auto &&i : core.transactionIds) {
@@ -69,7 +69,7 @@ bool notTooNoisyItem(const TransactionList<T> &dataset, const Pattern<T> &core,
     ok &= columnSum >= maxColumn;
   }
 
-  if (maxRowNoise != 1.0) {
+  if (maxRowNoise < 1.0) {
     const auto maxRow = (1 - maxRowNoise) * core.itemIds.size();
     for (auto &&i : core.transactionIds) {
       int rowSum = 0;
@@ -90,7 +90,7 @@ bool notTooNoisyTransaction(const TransactionList<T> &dataset,
                             float maxColumnNoise, size_t transaction) {
   bool ok = true;
 
-  if (maxColumnNoise != 1.0) {
+  if (maxColumnNoise < 1.0) {
     const auto maxColumn = (1 - maxColumnNoise) * core.transactionIds.size();
     for (auto &&j : core.itemIds) {
       int columnSum = 0;
@@ -102,7 +102,7 @@ bool notTooNoisyTransaction(const TransactionList<T> &dataset,
     }
   }
 
-  if (maxRowNoise != 1.0) {
+  if (maxRowNoise < 1.0) {
     const auto maxRow = (1 - maxRowNoise) * core.itemIds.size();
     int rowSum = 0;
     for (auto &&j : core.itemIds) {
