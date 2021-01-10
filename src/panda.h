@@ -57,7 +57,7 @@ bool notTooNoisy(const TransactionList<T> &dataset, const Pattern<T> &core,
 
 template <typename T>
 bool notTooNoisyItem(const TransactionList<T> &dataset, const Pattern<T> &core,
-                     float maxRowNoise, float maxColumnNoise, const T &item, int &prevColSum) {
+                     float maxRowNoise, float maxColumnNoise, const T &item) {
   bool ok = true;
 
   if (maxColumnNoise < 1.0) {
