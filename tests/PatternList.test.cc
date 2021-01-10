@@ -45,9 +45,7 @@ TEST_CASE("Complexity Calculation") {
 
   Pattern p2;
   p2.addItem(5);
-  p2.addItem(5);
   p2.addItem(3);
-  p2.addTransaction(5);
   p2.addTransaction(5);
   p2.addTransaction(3);
   p2.addTransaction(8);
