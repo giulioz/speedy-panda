@@ -92,7 +92,9 @@ bool notTooNoisyTransaction(const TransactionList<T> &dataset,
 
   if (maxColumnNoise < 1.0) {
     const auto maxColumn = (1 - maxColumnNoise) * core.transactionIds.size();
-    for (auto &&j : core.itemIds) {
+    #pragma omp parallel for reduction(&:ok)
+    for (size_t i = 0; i < core.itemIds.size(); i++) {
+      auto j = core.itemIds[i];
       int columnSum = 0;
       for (auto &&i : core.transactionIds) {
         columnSum += trIncludeItem(dataset.transactions[i], j);

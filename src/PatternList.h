@@ -6,16 +6,17 @@
 
 template <typename T = int>
 struct Pattern {
-  std::unordered_set<T> itemIds;
+  std::vector<T> itemIds;
+  // std::vector<size_t> transactionIds;
   std::unordered_set<size_t> transactionIds;
 
   // Empty constructor
   Pattern() {}
 
-  Pattern(const std::unordered_set<T> &itemIds)
+  Pattern(const std::vector<T> &itemIds)
       : itemIds(itemIds.begin(), itemIds.end()) {}
 
-  Pattern(const std::unordered_set<T> &itemIds,
+  Pattern(const std::vector<T> &itemIds,
           const std::unordered_set<size_t> &transactionIds)
       : itemIds(itemIds.begin(), itemIds.end()),
         transactionIds(transactionIds.begin(), transactionIds.end()) {}
@@ -56,19 +57,30 @@ struct Pattern {
     return itemIds.size() * transactionIds.size();
   }
 
-  inline void addItem(const T item) { itemIds.insert(item); }
+  inline void addItem(const T item) {
+    // itemIds.insert(item);
+    itemIds.push_back(item);
+  }
   inline void addTransaction(const size_t transaction) {
     transactionIds.insert(transaction);
+    // transactionIds.push_back(transaction);
   }
 
   template <typename E>
   void addTransactions(const E &transactions) {
     transactionIds.insert(transactions.cbegin(), transactions.cend());
+    // transactionIds.insert(transactionIds.end(), transactions.cbegin(),
+    //                       transactions.cend());
   }
 
-  inline bool hasItem(const T item) const { return itemIds.count(item) > 0; }
+  inline bool hasItem(const T item) const {
+    // return itemIds.count(item) > 0;
+    return std::find(itemIds.cbegin(), itemIds.cend(), item) != itemIds.cend();
+  }
   inline bool hasTransaction(const size_t transaction) const {
     return transactionIds.count(transaction) > 0;
+    // return std::find(transactionIds.cbegin(), transactionIds.cend(),
+    //                  transaction) != transactionIds.cend();
   }
 
   inline bool covers(const size_t trId, const T &item) const {
